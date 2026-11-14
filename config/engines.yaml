@@ -1,0 +1,50 @@
+# Search engines (spec section 8). Live service wins over this table.
+# Health scores are updated at runtime by the router.
+engines:
+  google:
+    best_for: operators
+    enabled: true
+    weight: 1.0
+  bing:
+    best_for: redundancy
+    enabled: true
+  duckduckgo:
+    best_for: fast_general
+    enabled: true
+  brave:
+    best_for: independent_index
+    enabled: true
+  yandex:
+    best_for: [russia, cis, turkey]
+    enabled: true
+  baidu:
+    best_for: [china]
+    enabled: true
+  sogou:
+    best_for: [china]
+    enabled: false
+  naver:
+    best_for: [korea]
+    enabled: true
+  yahoo_japan:
+    best_for: [japan]
+    enabled: true
+  searxng:
+    enabled: false        # open slot; enable when installed
+    url: ""
+
+escalation:
+  flaresolverr:
+    enabled: false        # rung 5, off by default (ADD-010)
+    url: "http://localhost:8191"
+  captcha_solver:
+    enabled: false        # rung 6, off by default (ADD-011)
+    provider: nopecha
+    daily_cap: 100
+
+politeness:
+  default_delay_s: 2.0
+  jitter_s: 1.0
+  max_retries: 3
+  backoff_factor: 2.0
+  user_agent: "CalendulaBuyerIntel/0.1 (personal research; contact: local)"

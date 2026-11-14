@@ -1,0 +1,36 @@
+# Languages (spec section 10, addendum slot). Seeded from the Calendula website
+# (~16 languages). NOT yet confirmed by the user - see open slot in 03_ADDITIONS.
+languages:
+  - code: en
+    name: English
+  - code: de
+    name: German
+  - code: fr
+    name: French
+  - code: es
+    name: Spanish
+  - code: it
+    name: Italian
+  - code: nl
+    name: Dutch
+  - code: pt
+    name: Portuguese
+  - code: ru
+    name: Russian
+  - code: zh
+    name: Chinese (Simplified)
+  - code: ja
+    name: Japanese
+  - code: ko
+    name: Korean
+  - code: ar
+    name: Arabic
+  - code: tr
+    name: Turkish
+  - code: pl
+    name: Polish
+  - code: sv
+    name: Swedish
+  - code: el
+    name: Greek
+confirmed: false

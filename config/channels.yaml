@@ -1,0 +1,49 @@
+# Channel recommender priors (spec section 16). Re-learned from reply rates.
+# All channels covered per the owner's instruction (not only Facebook and LinkedIn).
+channels:
+  - id: email
+    default_prior: 0.8
+  - id: phone
+    default_prior: 0.5
+  - id: whatsapp
+    default_prior: 0.6
+  - id: contact_form
+    default_prior: 0.5
+  - id: linkedin
+    default_prior: 0.6
+  - id: facebook
+    default_prior: 0.5
+  - id: instagram
+    default_prior: 0.3
+  - id: tiktok
+    default_prior: 0.2
+  - id: wechat
+    default_prior: 0.7   # China
+  - id: telegram
+    default_prior: 0.4
+  - id: vk
+    default_prior: 0.5   # Russia/CIS
+  - id: line
+    default_prior: 0.6   # Japan/Thailand
+  - id: kakao
+    default_prior: 0.6   # Korea
+  - id: zalo
+    default_prior: 0.6   # Vietnam
+  - id: b2b_marketplace
+    default_prior: 0.5
+  - id: rfq_board
+    default_prior: 0.5
+  - id: expo_matchmaking
+    default_prior: 0.6
+  - id: trade_association
+    default_prior: 0.4
+
+country_priors:
+  ID: {facebook: 0.8, linkedin: 0.3}
+  PH: {facebook: 0.8, linkedin: 0.3}
+  BD: {facebook: 0.8, linkedin: 0.3}
+  VN: {facebook: 0.8, linkedin: 0.3, zalo: 0.7}
+  CN: {wechat: 0.8, linkedin: 0.3}
+  RU: {vk: 0.7, telegram: 0.6, linkedin: 0.3}
+  JP: {line: 0.7, email: 0.7}
+  KR: {kakao: 0.7, email: 0.7}

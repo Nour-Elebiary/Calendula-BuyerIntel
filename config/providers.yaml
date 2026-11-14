@@ -1,0 +1,55 @@
+# LLM providers (spec section 9). Quotas are seed values; the live service wins.
+# Keys never live here - they come from config/secrets.yaml or environment.
+data_classes:
+  public: "public web content may go to any provider below"
+  private: "Calendula prices, strategy and private notes go only to local models"
+
+providers:
+  groq:
+    base_url: "https://api.groq.com/openai/v1"
+    data_class: public
+    enabled: true
+    rpm: 30
+    rpd: 1000
+    tpd: 200000
+    key_env: GROQ_API_KEY
+  gemini:
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
+    data_class: public
+    enabled: true
+    key_env: GEMINI_API_KEY
+  cloudflare:
+    base_url: "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
+    data_class: public
+    enabled: true
+    key_env: CLOUDFLARE_API_TOKEN
+  gonka:
+    base_url: "https://proxy.gonkabroker.com/v1"
+    data_class: public
+    enabled: true
+    key_env: GONKA_API_KEY
+  zai:
+    base_url: "https://api.z.ai/api/paas/v4"
+    data_class: public
+    enabled: true
+    rpm: 1
+    key_env: ZAI_API_KEY
+  openrouter:
+    base_url: "https://openrouter.ai/api/v1"
+    data_class: public
+    enabled: true
+    rpm: 20
+    rpd: 50
+    key_env: OPENROUTER_API_KEY
+  ollama:
+    base_url: "http://localhost:11434/v1"
+    data_class: private
+    enabled: false
+    key_env: null
+
+task_routing:
+  bulk_extraction: [groq, cloudflare, gemini, gonka, zai]
+  whole_site_reading: [gemini]
+  multilingual: [gemini]
+  embeddings: [ollama, gonka, cloudflare]
+  judging: [groq, gemini]

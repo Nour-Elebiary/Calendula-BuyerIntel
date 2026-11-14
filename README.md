@@ -1,0 +1,54 @@
+# Calendula Buyer Intel
+
+Personal buyer and market intelligence system for **Calendula Herbs Group**
+(Egyptian exporter of herbs, spices, herbal teas, seeds and botanicals).
+
+Single user, local-first, free-sourced. English only. No always-on server.
+
+## What it does
+
+1. Discovers companies that are real or likely buyers from many free sources.
+2. Classifies and scores them into tiers so the best-fit companies get the most effort.
+3. Finds their decision-makers and every available contact channel.
+4. Lets the user filter by country, company, tags, seniority, contact availability, last outreach.
+5. Collects market intelligence: trends, demand, Egypt exports, destination imports, shipments.
+6. Matches buyers to the 42-product catalog and estimates future demand from shipment data.
+
+## Documentation
+
+| File | Purpose |
+| --- | --- |
+| `docs/01_SPEC.md` | The full build spec (milestones M0-M8) |
+| `docs/02_WHAT_THE_USER_TOLD_ME.md` | Record of the owner's instructions |
+| `docs/03_ADDITIONS.md` | Living addendum - overrides the spec on any conflict |
+| `docs/DECISIONS.md` | Log of every override and deviation |
+
+**Read `01_SPEC`, then `02_WHAT_THE_USER_TOLD_ME`, then `03_ADDITIONS` at the start of every session.**
+
+## Setup (Windows)
+
+```powershell
+uv sync                      # creates .venv with Python 3.12
+uv run pytest                # run the test suite
+uv run buyerintel --help     # CLI
+```
+
+## Milestones
+
+| M | Scope | Status |
+| --- | --- | --- |
+| M0 | Repo, config, DB schema, audit layer, CLI, idempotent import | in progress |
+| M1 | Entity resolution, expo ingestion | - |
+| M2 | Product ontology, market module | - |
+| M3 | Search router, LLM router | - |
+| M4 | Enrichment engine | - |
+| M5 | Personas, scoring, tiers, rule chain | - |
+| M6 | People discovery | - |
+| M7 | Shipment sources, forecasting | - |
+| M8 | Outreach, scheduler, UI, export | - |
+
+## Security rules
+
+- API keys live in `config/secrets.yaml` or `.env` - both gitignored. Never hardcode or log them.
+- `data/` (SQLite, parquet, caches) is local only and gitignored.
+- Calendula's own prices and strategy never leave the machine (private LLM class only).

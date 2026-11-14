@@ -1,0 +1,21 @@
+# Scoring weights (spec section 13). Total must be 100.
+# Versioned: score_run stores weights_version; auto-tuning creates new versions.
+version: 1
+weights:
+  product_demand_fit: 30
+  chain_role: 15
+  scale_vs_moq: 15
+  active_buying_evidence: 15
+  persona_match: 10
+  reachability: 10
+  market_bonus: 5
+
+tier_thresholds:
+  tier1:
+    min_total: 70
+    min_product_fit: 18
+  tier2:
+    min_total: 45
+    max_total: 69
+  tier3:
+    max_total: 44

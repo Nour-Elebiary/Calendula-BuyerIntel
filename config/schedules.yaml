@@ -1,0 +1,11 @@
+# Scheduler jobs (spec section 17). APScheduler + SQLite job store.
+# Misfire grace window: missed runs execute on startup within this window.
+misfire_grace_s: 3600
+coalesce: true
+
+jobs: []
+# Example:
+# - id: expo_refresh
+#   cron: "0 6 * * 1"
+#   task: buyerintel.connectors.expos.refresh
+#   enabled: true

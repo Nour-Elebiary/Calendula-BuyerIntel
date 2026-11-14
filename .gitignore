@@ -1,0 +1,29 @@
+# Secrets - never commit (spec section 0, 03_ADDITIONS rule 1)
+config/secrets.yaml
+.env
+*.key
+
+# Data layer - local database, caches, snapshots, parquet (spec section 4)
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# OS / editor
+Thumbs.db
+.DS_Store
+*.swp

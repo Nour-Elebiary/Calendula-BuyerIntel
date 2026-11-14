@@ -1,0 +1,51 @@
+# Personas (spec section 13). Each persona: industry codes, multilingual keywords,
+# target titles by language, typical order size, product mix.
+personas:
+  - id: P1
+    name: bulk_importer_distributor
+    keywords: [importer, distributor, wholesale, herbs, spices]
+    target_titles: [purchasing manager, procurement, sourcing, buyer, import manager]
+    typical_order_kg: 1000
+    product_mix: bulk
+  - id: P2
+    name: tea_blender_packer
+    keywords: [tea, infusion, blend, pack, tisane]
+    target_titles: [buyer, category manager, sourcing, product manager]
+    typical_order_kg: 500
+    product_mix: tea
+  - id: P3
+    name: food_manufacturer
+    keywords: [seasonings, sauces, snacks, bakery, food manufacturing]
+    target_titles: [procurement, purchasing, R&D, QA]
+    typical_order_kg: 500
+    product_mix: culinary
+  - id: P4
+    name: supplement_nutraceutical
+    keywords: [supplements, nutraceutical, botanical extract, capsules]
+    target_titles: [procurement, sourcing, formulation, QA]
+    typical_order_kg: 500
+    product_mix: botanical
+  - id: P5
+    name: pharma_herbal_medicine
+    keywords: [pharmaceutical, herbal medicine, phytotherapy]
+    target_titles: [procurement, QA, regulatory, sourcing]
+    typical_order_kg: 500
+    product_mix: medicinal
+  - id: P6
+    name: private_label_retail
+    keywords: [private label, retail, own brand, store brand]
+    target_titles: [category manager, buyer, vendor manager]
+    typical_order_kg: 500
+    product_mix: mixed
+  - id: P7
+    name: pet_food_feed
+    keywords: [pet food, feed, animal nutrition]
+    target_titles: [procurement, purchasing, nutritionist]
+    typical_order_kg: 1000
+    product_mix: bulk
+  - id: P8
+    name: cosmetics_natural_care
+    keywords: [cosmetics, natural care, skincare, botanicals]
+    target_titles: [procurement, sourcing, formulation]
+    typical_order_kg: 500
+    product_mix: botanical
