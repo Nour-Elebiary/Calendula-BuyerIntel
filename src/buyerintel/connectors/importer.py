@@ -28,7 +28,14 @@ from openpyxl import load_workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from buyerintel.db.models import Company, CompanyAlias, Expo, ExpoEdition, SourceRecord
+from buyerintel.db.models import (
+    Company,
+    CompanyAlias,
+    ContactPoint,
+    Expo,
+    ExpoEdition,
+    SourceRecord,
+)
 from buyerintel.resolve.normalize import normalize_domain, normalize_name
 
 FIELD_ALIASES = {
@@ -39,7 +46,6 @@ FIELD_ALIASES = {
     "city": "city",
     "address": "address",
 }
-
 
 @dataclass
 class ImportStats:
@@ -97,6 +103,16 @@ def _cell(value) -> str:
     return str(value).strip() if value is not None else ""
 
 
+def _pick(row: dict, header) -> str:
+    """Read the first matching header for a column spec (string or alias list)."""
+    if isinstance(header, (list, tuple)):
+        for candidate in header:
+            if candidate in row:
+                return _cell(row[candidate])
+        return ""
+    return _cell(row.get(header))
+
+
 def import_workbook(
     session: Session,
     file_path: str | Path,
@@ -149,8 +165,9 @@ def import_workbook(
     for row in rows:
         mapped: dict = {}
         for field_name, header in columns.items():
-            if header in row:
-                mapped[field_name] = _cell(row[header])
+            value = _pick(row, header)
+            if value:
+                mapped[field_name] = value
         raw_name = mapped.get("name", "")
         if not raw_name:
             stats.rows_duplicate += 1 if not row else 0
@@ -204,6 +221,30 @@ def import_workbook(
                 expo_edition_id=edition_id,
             )
         )
+
+        # Optional published phone column -> company contact point (M1).
+        phone = mapped.get("phone")
+        if phone and company.id:
+            existing = session.scalar(
+                select(ContactPoint).where(
+                    ContactPoint.owner_type == "company",
+                    ContactPoint.owner_id == company.id,
+                    ContactPoint.kind == "phone",
+                    ContactPoint.value == phone,
+                )
+            )
+            if existing is None:
+                session.add(
+                    ContactPoint(
+                        owner_type="company",
+                        owner_id=company.id,
+                        kind="phone",
+                        value=phone,
+                        verified_status="published",
+                        confidence=0.6,
+                    )
+                )
+
         known_hashes.add(raw_hash)
         stats.rows_new += 1
 

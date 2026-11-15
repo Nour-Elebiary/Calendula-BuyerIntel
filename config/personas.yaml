@@ -1,51 +1,150 @@
-# Personas (spec section 13). Each persona: industry codes, multilingual keywords,
-# target titles by language, typical order size, product mix.
+# Personas v2 (docs/Calendula Herbs Group Buyer & Purchaser Personas.md, sections 3-4
+# and 9). Supersedes spec section 13's 8-persona list per the additions precedence.
+# Each persona: group, tier, classification keywords (doc section 9), HS codes,
+# target titles, typical order size, product mix, and scoring hints.
 personas:
+  # --- A. Trade buyers (resell or repack) ---
   - id: P1
-    name: bulk_importer_distributor
-    keywords: [importer, distributor, wholesale, herbs, spices]
-    target_titles: [purchasing manager, procurement, sourcing, buyer, import manager]
+    name: bulk_importer_packer
+    group: trade
+    tier: 1
+    keywords: [spice importer, herb importer, packer, blender, bulk, container]
+    hs_codes: ["0909", "0910", "0904", "1211", "0712"]
+    target_titles: [purchasing manager, category buyer, procurement director, owner]
     typical_order_kg: 1000
     product_mix: bulk
+    disqualify: [spot trading only, no repeat intent, payment terms we cannot carry]
   - id: P2
-    name: tea_blender_packer
-    keywords: [tea, infusion, blend, pack, tisane]
-    target_titles: [buyer, category manager, sourcing, product manager]
-    typical_order_kg: 500
-    product_mix: tea
+    name: regional_distributor_wholesaler
+    group: trade
+    tier: 1
+    keywords: [wholesaler, distributor, trading, general trading, fmcg]
+    target_titles: [owner, general manager, purchasing, import manager]
+    typical_order_kg: 1000
+    product_mix: mixed
+    channels: [whatsapp, facebook, tridge, alibaba, regional food fairs]
+    disqualify: [pay-after-arrival demands]
   - id: P3
-    name: food_manufacturer
-    keywords: [seasonings, sauces, snacks, bakery, food manufacturing]
-    target_titles: [procurement, purchasing, R&D, QA]
-    typical_order_kg: 500
-    product_mix: culinary
-  - id: P4
-    name: supplement_nutraceutical
-    keywords: [supplements, nutraceutical, botanical extract, capsules]
-    target_titles: [procurement, sourcing, formulation, QA]
-    typical_order_kg: 500
-    product_mix: botanical
-  - id: P5
-    name: pharma_herbal_medicine
-    keywords: [pharmaceutical, herbal medicine, phytotherapy]
-    target_titles: [procurement, QA, regulatory, sourcing]
-    typical_order_kg: 500
-    product_mix: medicinal
-  - id: P6
-    name: private_label_retail
-    keywords: [private label, retail, own brand, store brand]
-    target_titles: [category manager, buyer, vendor manager]
+    name: broker_sourcing_agent
+    group: trade
+    tier: 2
+    keywords: [sourcing agent, broker, commission agent, indent, buying house]
+    target_titles: [agent, broker, sourcing manager]
     typical_order_kg: 500
     product_mix: mixed
+    risks: [price-shopping the quote, hides the end buyer]
+  - id: P4
+    name: ethnic_diaspora_importer
+    group: trade
+    tier: 2
+    keywords: [ethnic food, arabic grocery, turkish food, south asian food, african food, halal food]
+    hs_codes: ["0909", "0910", "1211", "0712"]
+    target_titles: [owner, purchasing, import manager]
+    typical_order_kg: 500
+    product_mix: egyptian_specialties
+    edge: authentic egyptian origin
+
+  # --- B. Manufacturers (end-use buyers) ---
+  - id: P5
+    name: herbal_tea_blender
+    group: manufacturer
+    tier: 1
+    keywords: [tea, tisane, infusion, herbal tea, tea bag]
+    hs_codes: ["0902", "1211", "2106"]
+    target_titles: [sourcing manager, product developer, tea master, qa manager]
+    typical_order_kg: 500
+    product_mix: tea
+    cares_about: [tbc cut size, dust percentage, essential-oil content, pyrrolizidine alkaloids]
+  - id: P6
+    name: food_beverage_manufacturer
+    group: manufacturer
+    tier: 2
+    keywords: [seasoning, sauce, soup, snack, ready meal, bakery, meat processing]
+    target_titles: [procurement, qa, r&d, supply chain planner]
+    typical_order_kg: 500
+    product_mix: culinary
+    cares_about: [microbial load, validated heat treatment, granulation, allergen statements]
   - id: P7
-    name: pet_food_feed
-    keywords: [pet food, feed, animal nutrition]
+    name: supplement_nutraceutical
+    group: manufacturer
+    tier: 2
+    keywords: [nutraceutical, supplement, capsule, botanical ingredient, private label supplements]
+    target_titles: [procurement, sourcing, formulation, qa, regulatory]
+    typical_order_kg: 500
+    product_mix: botanical
+    cares_about: [botanical identity testing, heavy metals, adulteration controls, supplier qualification]
+  - id: P8
+    name: pharma_phytopharma
+    group: manufacturer
+    tier: 1
+    keywords: [pharmaceutical, phytopharma, herbal medicine, monograph, pharmacopoeia]
+    target_titles: [qualified person, raw-material procurement, regulatory affairs, qa]
+    typical_order_kg: 500
+    product_mix: medicinal
+    cares_about: [ph. eur. / usp / bp monographs, gacp documentation, audit access, change control]
+    note: few accounts, long cycle, strong retention
+  - id: P9
+    name: natural_cosmetics_formulator
+    group: manufacturer
+    tier: 3
+    keywords: [natural cosmetics, skincare, soap, botanical oil, cosmos]
+    target_titles: [procurement, sourcing, formulation]
+    typical_order_kg: 250
+    product_mix: botanical
+    note: prioritize larger manufacturers; route small brands through distributors
+  - id: P10
+    name: extract_essential_oil_processor
+    group: manufacturer
+    tier: 2
+    keywords: [extract, essential oil, distillery, hydrosol, natural colour, oleoresin]
+    target_titles: [procurement, sourcing, production manager]
+    typical_order_kg: 1000
+    product_mix: aromatic
+    cares_about: [marker content, essential-oil yield, volume stability, long-term contracts]
+  - id: P11
+    name: pet_food_animal_feed
+    group: manufacturer
+    tier: 3
+    keywords: [pet food, treats, feed mill, animal nutrition, equine]
     target_titles: [procurement, purchasing, nutritionist]
     typical_order_kg: 1000
     product_mix: bulk
-  - id: P8
-    name: cosmetics_natural_care
-    keywords: [cosmetics, natural care, skincare, botanicals]
-    target_titles: [procurement, sourcing, formulation]
+    cares_about: [mycotoxins, heavy metals, feed-safety regulatory fit]
+
+  # --- C. Special channels ---
+  - id: P12
+    name: private_label_retailer
+    group: channel
+    tier: 3
+    keywords: [private label, retail, own brand, store brand, supermarket]
+    target_titles: [category manager, buyer, vendor manager]
     typical_order_kg: 500
-    product_mix: botanical
+    product_mix: mixed
+    note: mostly downstream pull via importer-packers (P1/P5); approach the packer
+  - id: P13
+    name: institutional_tender_buyer
+    group: channel
+    tier: 3
+    keywords: [tender, government procurement, hospital, military catering, aid agency]
+    target_titles: [procurement officer, tender committee]
+    typical_order_kg: 1000
+    product_mix: mixed
+    note: pursue selectively only where tender docs match our certificates
+  - id: P14
+    name: trade_platform_opportunist
+    group: channel
+    tier: 3
+    keywords: [tridge, alibaba, trade platform]
+    negative_signals: [quantity below moq, no website, no verifiable address, repeated sample requests, no qa contact]
+    typical_order_kg: 100
+    product_mix: mixed
+    note: enforce MOQ and buyer-pays-shipping; standard price list only; minimal investment
+  - id: P15
+    name: existing_partner
+    group: channel
+    tier: 1
+    keywords: [existing customer, current buyer, repeat order]
+    target_titles: [purchasing, qa, owner]
+    typical_order_kg: 1000
+    product_mix: mixed
+    note: retention and expansion - cross-sell adjacent SKUs, convert conventional to organic

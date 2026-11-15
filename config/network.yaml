@@ -1,0 +1,38 @@
+# Network egress policy (owner override, docs/03_ADDITIONS.md, logged in
+# docs/DECISIONS.md).
+#
+# Rules (owner's explicit decision, 2026-11-14):
+#   1. NEVER run a Tor exit node - carrying other people's anonymous traffic is a
+#      real legal exposure and is permanently off the table.
+#   2. `direct` is the DEFAULT egress mode. Tor/proxy are targeted fallbacks only,
+#      for specific rate-limited sites - never a global default.
+#   3. Every fetcher/connector must read this file before making requests.
+mode: direct            # direct | proxy | tor  (never tor by default)
+
+direct:
+  # Polite defaults for the direct path.
+  user_agent_rotation: true
+  respect_robots_txt: true   # unless the target site is an approved data source
+  timeout_seconds: 30
+  max_concurrency: 4
+
+proxy:
+  # Optional targeted fallback (per-site). Leave empty until a specific site
+  # needs it; keys are domains, values are proxy URLs from secrets.yaml refs.
+  enabled: false
+  per_site: {}          # e.g. some-blocked-site.com: https://proxy.example:8080
+  pool: []              # or a small paid/own proxy pool
+
+tor:
+  # Targeted fallback for a specific rate-limited site ONLY (SOCKS5 control port
+  # on localhost, standard Tor client - we are a client, never a relay/exit).
+  enabled: false
+  control_host: 127.0.0.1
+  socks_port: 9050
+  circuit_rotate_per_request: false
+  per_site: []          # domains allowed to route via tor; empty = nothing routes
+
+# Sites known to rate-limit aggressively get an entry here so the fetcher knows
+# to back off politely (longer delays, fewer concurrent requests) before any
+# fallback mode is even considered.
+rate_limit_overrides: {}

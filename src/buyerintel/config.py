@@ -64,6 +64,8 @@ class Settings:
     languages: dict = field(default_factory=lambda: load_yaml("languages.yaml"))
     channels: dict = field(default_factory=lambda: load_yaml("channels.yaml"))
     schedules: dict = field(default_factory=lambda: load_yaml("schedules.yaml"))
+    products: dict = field(default_factory=lambda: load_yaml("products.yaml"))
+    network: dict = field(default_factory=lambda: load_yaml("network.yaml"))
     db_url: str = ""
 
     def __post_init__(self) -> None:

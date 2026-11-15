@@ -1,0 +1,38 @@
+﻿# Expo map: FOODEX Japan (spec section 11 / M1)
+# Column aliases: the first header present in the file wins. Adjust after seeing
+# the real file; log changes in docs/DECISIONS.md.
+expo: "FOODEX Japan"
+source: "foodex_japan"
+sheet: null            # set to a sheet name when known, else active sheet
+columns:
+  name:
+    - "Company"
+    - "Company Name"
+    - "Exhibitor"
+    - "Exhibitor Name"
+    - "Name"
+  legal_name:
+    - "Legal Name"
+    - "Registered Name"
+  domain:
+    - "Website"
+    - "Web Site"
+    - "URL"
+    - "Homepage"
+  country:
+    - "Country"
+    - "Country / Region"
+    - "Origin"
+  city:
+    - "City"
+    - "Location"
+  address:
+    - "Address"
+    - "Street Address"
+  phone:
+    - "Phone"
+    - "Telephone"
+    - "Tel"
+  products:
+    - "Products"
+    - "Product Categories"

@@ -18,6 +18,8 @@ LEGAL_SUFFIXES = [
     "ag",
     "ltd",
     "limited",
+    "company",
+    "companie",
     "llc",
     "inc",
     "incorporated",

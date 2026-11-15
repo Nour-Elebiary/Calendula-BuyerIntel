@@ -10,7 +10,7 @@ from buyerintel.resolve.normalize import normalize_domain, normalize_name
     [
         ("Test Importer GmbH", "test importer"),
         ("Acme Trading Co., Ltd.", "acme trading"),
-        ("ACME  Trading   Company", "acme trading company"),
+        ("ACME  Trading   Company", "acme trading"),  # "company" is a legal suffix
         ("Müller & Sons B.V.", "müller sons"),  # & stripped, unicode kept
         ("Zenith Foods S.A. de C.V.", "zenith foods"),
         ("", ""),

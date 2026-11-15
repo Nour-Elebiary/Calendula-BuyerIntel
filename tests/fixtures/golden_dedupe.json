@@ -1,0 +1,42 @@
+{
+  "description": "Golden dedupe pairs (spec M1 acceptance: >=0.98 precision, >=0.90 recall). Labels: match | distinct | link | adjudicate.",
+  "pairs": [
+    {"a": {"name": "Meridian Spice Imports", "country": "US", "domain": "meridianspice.com"}, "b": {"name": "Meridian Spice Imports Inc", "country": "US", "domain": "www.meridianspice.com"}, "label": "match"},
+    {"a": {"name": "Kräuter Kontor Hamburg", "country": "DE", "domain": "kraeuter-kontor.de", "registry_id": "HRB 12345"}, "b": {"name": "Kräuter Kontor", "country": "DE", "domain": "kraeuter-kontor.org", "registry_id": "HRB12345"}, "label": "match"},
+    {"a": {"name": "Zaytoun Foods", "country": "EG", "phone": "+20 100 123 4567"}, "b": {"name": "Zaytoun Trading", "country": "EG", "phone": "+201001234567"}, "label": "match"},
+    {"a": {"name": "Pacific Botanicals", "country": "AU", "social": "linkedin.com/company/pacific-botanicals"}, "b": {"name": "Pacific Botanical Co", "country": "AU", "social": "https://www.linkedin.com/company/pacific-botanicals/"}, "label": "match"},
+    {"a": {"name": "Golden Leaf Tea Co", "country": "GB", "domain": "goldenleaf.co.uk", "address": "10 Cathedral Road, Cardiff"}, "b": {"name": "Golden Leaf Tea Company", "country": "GB", "domain": "goldenleaf-tea.co.uk", "address": "10 Cathedral Road, Cardiff"}, "label": "match"},
+    {"a": {"name": "Herbal Origins Ltd", "country": "IN", "address": "Andheri East, Mumbai 400069"}, "b": {"name": "Herbal Origins", "country": "IN", "address": "Andheri East, Mumbai 400069"}, "label": "match"},
+    {"a": {"name": "Караван Спайс", "country": "RU", "domain": "karavan-spice.ru"}, "b": {"name": "Karavan Spice", "country": "RU", "domain": "karavan-spice.ru"}, "label": "match"},
+    {"a": {"name": "Bio Botanica SRL", "country": "IT", "domain": "biobotanica.it", "vat_id": "IT01234567890"}, "b": {"name": "Bio Botanica", "country": "IT", "vat_id": "IT 01234567890"}, "label": "match"},
+    {"a": {"name": "Herb House Pty Ltd", "country": "AU", "domain": "herbhouse.com.au", "phone": "+61 2 8123 4567"}, "b": {"name": "Herb House", "country": "AU", "phone": "+61 2 8123 4567"}, "label": "match"},
+    {"a": {"name": "Sabor Natural S.A.", "country": "MX", "domain": "sabornatural.mx", "address": "Av. Insurgentes Sur 1234, CDMX"}, "b": {"name": "Sabor Natural", "country": "MX", "domain": "sabornatural.mx", "address": "Av. Insurgentes Sur 1234, Col. Del Valle, CDMX"}, "label": "match"},
+
+    {"a": {"name": "Fresh Spice Trading", "country": "US"}, "b": {"name": "Fresh Freight Logistics", "country": "US"}, "label": "distinct"},
+    {"a": {"name": "Omega Herbs LLC", "country": "US", "domain": "omegaherbs.com"}, "b": {"name": "Omega Marine Exports", "country": "DE", "domain": "omegamarine.de"}, "label": "distinct"},
+    {"a": {"name": "Anadolu Baharat", "country": "TR", "domain": "anadolubaharat.com.tr"}, "b": {"name": "Anadolu Gida Sanayi", "country": "TR", "domain": "anadolugida.com"}, "label": "distinct"},
+    {"a": {"name": "Himalaya Herbs", "country": "IN", "domain": "himalayaherbs.in"}, "b": {"name": "Himalaya Wellness", "country": "IN", "domain": "himalayawellness.com"}, "label": "distinct"},
+    {"a": {"name": "Deutsche Kräuterquelle GmbH", "country": "DE", "domain": "kraeuterquelle.de"}, "b": {"name": "Deutsche Meeresfrüchte Handels GmbH", "country": "DE", "domain": "meeresfruechte.de"}, "label": "distinct"},
+    {"a": {"name": "Sunrise Agro Foods", "country": "VN", "domain": "sunriseagro.vn"}, "b": {"name": "Sunrise Seafood Import", "country": "US", "domain": "sunrisesf.com"}, "label": "distinct"},
+    {"a": {"name": "Green Valley Mills", "country": "US", "domain": "greenvalleymills.com"}, "b": {"name": "Green Valley Foods Inc", "country": "US", "domain": "greenvalleyfoods.com"}, "label": "distinct"},
+    {"a": {"name": "Maroc Herbes SARL", "country": "MA", "domain": "marocherbes.ma"}, "b": {"name": "Maroc Bio Export", "country": "MA", "domain": "marocbio.ma"}, "label": "distinct"},
+    {"a": {"name": "Chengdao Trade Ltd", "country": "CN", "domain": "chengdao.cn"}, "b": {"name": "Chengdao Import & Export Co", "country": "CN", "domain": "chengdaoie.cn"}, "label": "distinct"},
+    {"a": {"name": "Spice Route Ltd", "country": "IL", "domain": "spiceroute.co.il"}, "b": {"name": "Silk Route Trading", "country": "AE", "domain": "silkroute.ae"}, "label": "distinct"},
+
+    {"a": {"name": "Acme Foods", "country": "US", "domain": "acmefoods.com"}, "b": {"name": "Acme Foods", "country": "DE", "domain": "acmefoods.de"}, "label": "link"},
+    {"a": {"name": "Zenith Herbs", "country": "IN", "domain": "zenithherbs.in"}, "b": {"name": "Zenith Herbs", "country": "NL", "domain": "zenithherbs.eu"}, "label": "link"},
+    {"a": {"name": "Oriental Blenders Ltd", "country": "HK", "domain": "orientalblenders.hk"}, "b": {"name": "Oriental Blenders", "country": "SG", "domain": "orientalblenders.sg"}, "label": "link"},
+
+    {"a": {"name": "Nordsee Gewürze Handel", "country": "DE", "domain": "nordsee-gwz.de", "address": "Hafenstraße 5, Hamburg"}, "b": {"name": "Nordsee Gewürzhandel", "country": "DE", "domain": "nordsee-gewuerze.de", "address": "Hafenstraße 5, Hamburg"}, "label": "match"},
+    {"a": {"name": "Gewürzmühle Müller", "country": "DE", "address": "Industriering 3, Augsburg"}, "b": {"name": "Gewürz Müller Mühle", "country": "DE", "address": "Industriering 3, Augsburg"}, "label": "match"},
+    {"a": {"name": "Thai Herb Union Co Ltd", "country": "TH", "domain": "thaiherbu.co.th"}, "b": {"name": "Thai Herbs Union", "country": "TH", "domain": "thaiherb.co.th"}, "label": "match"},
+    {"a": {"name": "Kaizen Seasonings KK", "country": "JP", "address": "Shibuya 2-11-1, Tokyo"}, "b": {"name": "Kaizen Seasoning K.K.", "country": "JP", "address": "Shibuya 2-11-1, Tokyo"}, "label": "match"},
+    {"a": {"name": "Botanica del Sur SA de CV", "country": "MX", "address": "Parque Industrial Tecnomex, Edo. de México"}, "b": {"name": "Botánica del Sur", "country": "MX", "address": "Parque Industrial Tecnomex, Edo. de México"}, "label": "match"},
+
+    {"a": {"name": "Al Waha Herbs Trading", "country": "AE", "address": "Warehouse 12, Al Quoz Industrial 3, Dubai"}, "b": {"name": "Al Waha Herb Traders", "country": "AE", "address": "Warehouse 12, Al Quoz Industrial 3, Dubai"}, "label": "adjudicate"},
+    {"a": {"name": "Nile Valley Botanicals", "country": "EG", "address": "Industrial Zone A, 6th of October City, Giza"}, "b": {"name": "Nile Valley Botanical Extracts", "country": "EG", "address": "Industrial Zone A, 6th of October City, Giza"}, "label": "adjudicate"},
+    {"a": {"name": "Pacific Rim Tea Traders", "country": "NZ", "address": "27-29 Grafton Road, Auckland Central"}, "b": {"name": "Pacific Tea Traders", "country": "NZ", "address": "27-29 Grafton Road, Auckland Central"}, "label": "adjudicate"},
+    {"a": {"name": "Baltic Herb Import", "country": "PL", "address": "ul. Morska 14, Gdynia"}, "b": {"name": "Baltic Herbal Imports", "country": "PL", "address": "ul. Morska 14, Gdynia"}, "label": "adjudicate"},
+    {"a": {"name": "Fayoum Herb Exporters", "country": "EG", "address": "New Sea St, Ibshaway, Fayoum"}, "b": {"name": "Fayoum Herbs Exports", "country": "EG", "address": "New Sea St, Ibshaway, Fayoum"}, "label": "adjudicate"}
+  ]
+}

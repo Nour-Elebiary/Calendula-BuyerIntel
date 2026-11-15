@@ -212,7 +212,11 @@ Milestone affected:
 Status: Open | Done | Changed | Dropped
 Notes for opencode:
 ```
+Add/edit that in the next check:
 
+I also kept “do not run a Tor exit node” and kept direct as the default egress mode rather than tor. Running an exit node means carrying other people’s anonymous traffic through your connection, which is a real legal exposure in most jurisdictions, and defaulting everything to Tor would make the whole pipeline slow and far more likely to get blocked. Targeted Tor/proxy rotation for specific rate-limited sites, which is what your open-slots note actually describes, is the reasonable version of this and I kept it.
+
+Notice that you should understand the methodolgies, technologies, techniqies, knowledge, etc.... of and behind the tools nad repos so you can master use them in evevry possible way, if there're related available skills use them for better usage and implementation, you can even update the docs regarding such things.
 ### Entries added by the user later: integrated on 2026-11-14
 
 The batch of nine repositories listed here was added by the user on 2026-11-14 and has since been considered, edited into the change log (ADD-010 to ADD-016) and sections 4.8-4.10, and reflected in the build spec. Per the standing rule, they are deleted from this staging list:

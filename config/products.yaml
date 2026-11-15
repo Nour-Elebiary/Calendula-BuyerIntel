@@ -1,0 +1,49 @@
+# The 42-product catalog (docs/Calendula Herbs Group — Company Profile &
+# Seller Exporter Persona.md, section 5). Every product is available conventional
+# AND 100% organic; forms vary per product (whole, cut, crushed, ground/powder,
+# sifted, tea-bag cut "TBC").
+# Note: the website also lists oregano (Origanum vulgare) as an extra listing
+# (44 listings vs 42); it is NOT part of the master catalog below.
+products:
+  - {name: aniseed, latin_name: Pimpinella anisum, part: seeds, aliases: [anise]}
+  - {name: alfalfa, latin_name: Medicago sativa, part: leaves}
+  - {name: basil, latin_name: Ocimum basilicum, part: leaves}
+  - {name: beet root, latin_name: Beta vulgaris, part: root powder, aliases: [beet]}
+  - {name: calendula, latin_name: Calendula officinalis, part: flowers, forms: [flowers, petals]}
+  - {name: caraway, latin_name: Carum carvi, part: seeds}
+  - {name: celery, latin_name: Apium graveolens, part: leaves, forms: [leaves, seeds]}
+  - {name: chamomile, latin_name: Matricaria chamomilla, part: flowers, forms: [flowers, petals, powder, TBC]}
+  - {name: chicory, latin_name: Cichorium intybus, part: leaves}
+  - {name: chilli, latin_name: Capsicum frutescens, part: pods, forms: [pods, leaves]}
+  - {name: coriander, latin_name: Coriandrum sativum, part: seeds, forms: [leaves, seeds], aliases: [cilantro, coriander leaf]}
+  - {name: cumin, latin_name: Cuminum cyminum, part: seeds}
+  - {name: dill, latin_name: Anethum graveolens, part: seeds, forms: [leaves, seeds]}
+  - {name: echinacea, latin_name: Echinacea angustifolia, part: flowers, forms: [flowers, TBC]}
+  - {name: fennel, latin_name: Foeniculum vulgare, part: seeds}
+  - {name: fenugreek, latin_name: Trigonella foenum-graecum, part: seeds, forms: [leaves, seeds]}
+  - {name: garlic, latin_name: Allium sativum, part: bulb}
+  - {name: hibiscus, latin_name: Hibiscus sabdariffa, part: flowers, forms: [flowers, petals, TBC, powder, sifting], aliases: [karkade, roselle]}
+  - {name: lime lemon, latin_name: Citrus limon, part: fruit, aliases: [lemon, lime]}
+  - {name: lemongrass, latin_name: Cymbopogon citratus, part: leaves}
+  - {name: lemon balm, latin_name: Melissa officinalis, part: leaves, forms: [leaves, TBC]}
+  - {name: lemon verbena, latin_name: Aloysia citrodora, part: leaves, forms: [leaves, TBC]}
+  - {name: liquorice, latin_name: Glycyrrhiza glabra, part: roots, aliases: [licorice]}
+  - {name: marjoram, latin_name: Origanum majorana, part: leaves}
+  - {name: jew's mallow, latin_name: Corchorus olitorius, part: leaves, aliases: [molokhia, jute mallow]}
+  - {name: nettle, latin_name: Urtica dioica, part: leaves}
+  - {name: nigella, latin_name: Nigella sativa, part: seeds, aliases: [black cumin, black seed]}
+  - {name: olive leaf, latin_name: Olea europaea, part: leaves, aliases: [olive]}
+  - {name: onion, latin_name: Allium cepa, part: bulb}
+  - {name: parsley, latin_name: Petroselinum crispum, part: leaves, forms: [leaves, seeds]}
+  - {name: peppermint, latin_name: Mentha × piperita, part: leaves, forms: [leaves, crushed, TBC]}
+  - {name: rose, latin_name: Rosa damascena, part: petals}
+  - {name: rosemary, latin_name: Salvia rosmarinus, part: leaves}
+  - {name: sage, latin_name: Salvia officinalis, part: leaves}
+  - {name: senna, latin_name: Senna alexandrina, part: pods, forms: [pods, leaves]}
+  - {name: sesame, latin_name: Sesamum indicum, part: seeds}
+  - {name: spearmint, latin_name: Mentha spicata, part: leaves}
+  - {name: thyme, latin_name: Thymus vulgaris, part: leaves}
+  - {name: orange peel, latin_name: Citrus sinensis, part: peel, aliases: [orange]}
+  - {name: leek, latin_name: Allium ampeloprasum, part: leaves}
+  - {name: flax, latin_name: Linum usitatissimum, part: seeds, aliases: [linseed]}
+  - {name: moringa, latin_name: Moringa oleifera, part: leaves, forms: [leaves, crushed, ground, powder, seeds]}

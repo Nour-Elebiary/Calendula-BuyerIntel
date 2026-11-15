@@ -57,6 +57,93 @@ def import_workbook(
         session.close()
 
 
+@app.command("ingest-expo")
+def ingest_expo_cmd(
+    file: Path = typer.Argument(..., exists=True, readable=True, help="xlsx or csv exhibitor list"),
+    map_name: str = typer.Argument(..., help="Expo map slug from config/expo_maps/"),
+    expo_year: Optional[int] = typer.Option(None, help="Edition year (overrides the map)"),
+) -> None:
+    """Ingest an exhibitor list idempotently through an expo map (M1)."""
+    from buyerintel.config import load_settings
+    from buyerintel.connectors.expos import ingest_expo
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+
+    settings = load_settings()
+    init_db(get_engine(settings.db_url))
+    session = get_session(settings.db_url)
+    install_audit(type(session))
+    session.info["audit_source"] = f"expo:{map_name}"
+    try:
+        result = ingest_expo(session, file, map_name, expo_year=expo_year)
+        session.commit()
+        typer.echo(
+            f"rows={result['rows_total']} new={result['rows_new']} "
+            f"duplicate={result['rows_duplicate']} "
+            f"companies_created={result['companies_created']} "
+            f"appearances={result['appearances_created']}"
+        )
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@app.command()
+def dedupe() -> None:
+    """Run the entity-resolution sweep over all companies (M1)."""
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.resolve import dedupe
+
+    settings = load_settings()
+    init_db(get_engine(settings.db_url))
+    session = get_session(settings.db_url)
+    install_audit(type(session))
+    try:
+        stats = dedupe.sweep(session)
+        session.commit()
+        typer.echo(
+            f"pairs={stats['pairs']} merged={stats['merged']} linked={stats['linked']} "
+            f"adjudicated={stats['adjudicated']} distinct={stats['distinct']}"
+        )
+        if stats["adjudicated"]:
+            typer.echo(
+                f"⚠ {stats['adjudicated']} borderline pairs await adjudication "
+                "(recorded, not guessed)"
+            )
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@app.command("seed-products")
+def seed_products_cmd() -> None:
+    """Upsert the 42-product catalog from config/products.yaml (idempotent)."""
+    from buyerintel.catalog import seed_products
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+
+    settings = load_settings()
+    init_db(get_engine(settings.db_url))
+    session = get_session(settings.db_url)
+    install_audit(type(session))
+    try:
+        stats = seed_products(session)
+        session.commit()
+        typer.echo(stats.summary())
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
 @app.command("jobs")
 def jobs_list() -> None:
     """List configured scheduler jobs."""

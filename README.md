@@ -22,6 +22,8 @@ Single user, local-first, free-sourced. English only. No always-on server.
 | `docs/02_WHAT_THE_USER_TOLD_ME.md` | Record of the owner's instructions |
 | `docs/03_ADDITIONS.md` | Living addendum - overrides the spec on any conflict |
 | `docs/DECISIONS.md` | Log of every override and deviation |
+| `docs/Calendula Herbs Group Buyer & Purchaser Personas.md` | 15 buyer personas + scoring signals (source of `config/personas.yaml` v2 and `config/weights.yaml` v2) |
+| `docs/Calendula Herbs Group — Company Profile & Seller Exporter Persona.md` | Company profile, 42-product catalog, certifications (source of `config/products.yaml`) |
 
 **Read `01_SPEC`, then `02_WHAT_THE_USER_TOLD_ME`, then `03_ADDITIONS` at the start of every session.**
 

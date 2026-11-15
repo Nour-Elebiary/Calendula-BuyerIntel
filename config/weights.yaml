@@ -1,19 +1,19 @@
-# Scoring weights (spec section 13). Total must be 100.
+# Scoring weights v2 (docs/Calendula Herbs Group Buyer & Purchaser Personas.md,
+# section 9 "Suggested score components"). Supersedes spec section 13's v1 weights
+# per the additions precedence. Total must be 100.
 # Versioned: score_run stores weights_version; auto-tuning creates new versions.
-version: 1
+version: 2
 weights:
-  product_demand_fit: 30
-  chain_role: 15
-  scale_vs_moq: 15
-  active_buying_evidence: 15
-  persona_match: 10
-  reachability: 10
-  market_bonus: 5
+  persona_fit_product_overlap: 35   # persona fit + product overlap with the 42 SKUs
+  scale_buying_frequency: 25        # importer vs small trader, repeat vs spot
+  certification_alignment: 15       # organic, BRCGS, ISO 22000, HALAL, KOSHER, FDA
+  reachability: 15                  # named decision maker, verified email/phone, social
+  timing_signals: 10                # recent imports, expo attendance, launches, supplier changes
 
 tier_thresholds:
   tier1:
     min_total: 70
-    min_product_fit: 18
+    min_product_fit: 14   # 40% of the 35-point product-overlap component
   tier2:
     min_total: 45
     max_total: 69
