@@ -376,3 +376,24 @@ class LlmCallLog(Base):
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     outcome: Mapped[str | None] = mapped_column(String(16))
     ts: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class LlmCache(Base):
+    """Completed LLM responses keyed by prompt hash (spec section 9).
+
+    Addition to the core table list, logged in docs/DECISIONS.md: the spec
+    requires prompt-hash caching but names no table. One row per (provider,
+    model, prompt_hash).
+    """
+
+    __tablename__ = "llm_cache"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    prompt_hash: Mapped[str] = mapped_column(String(64), index=True)
+    provider: Mapped[str] = mapped_column(String(32), index=True)
+    model: Mapped[str] = mapped_column(String(64))
+    task: Mapped[str | None] = mapped_column(String(64))
+    response_text: Mapped[str] = mapped_column(Text)
+    tokens_in: Mapped[int | None] = mapped_column(Integer)
+    tokens_out: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    __table_args__ = (UniqueConstraint("provider", "model", "prompt_hash"),)

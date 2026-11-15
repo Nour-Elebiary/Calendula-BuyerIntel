@@ -44,6 +44,10 @@ uv run buyerintel market-signals       # FX rates + PubMed counts + Google Trend
 uv run buyerintel market-comtrade      # Egypt trade flows from UN Comtrade (rate-limited, budgeted)
 uv run buyerintel market-comext        # EU27 imports from Egypt via Eurostat Comext
 uv run buyerintel market-trademap --file path\to\export.csv   # ITC Trade Map CSV import
+uv run buyerintel search-test "herb buyer germany"   # route one query through the search router
+uv run buyerintel llm-test "summarize this page"     # one prompt through the LLM router
+uv run buyerintel llm-health                         # per-provider health, quotas, cache stats
+uv run buyerintel llm-sync-catalog                   # sync free-LLM provider catalog
 uv run buyerintel serve                # local Streamlit dashboard (Market Intelligence page)
 ```
 
@@ -54,7 +58,7 @@ uv run buyerintel serve                # local Streamlit dashboard (Market Intel
 | M0 | Repo, config, DB schema, audit layer, CLI, idempotent import | done |
 | M1 | Entity resolution, expo ingestion | done |
 | M2 | Product ontology, market module (Comtrade, Comext, Trade Map CSV, pytrends, PubMed, FX), market UI page | done |
-| M3 | Search router, LLM router | - |
+| M3 | Search router (engines, SearXNG option, cache, health), multilingual query builder, LLM router (quotas, rotation, fallback, schema validation) | done |
 | M4 | Enrichment engine | - |
 | M5 | Personas, scoring, tiers, rule chain | - |
 | M6 | People discovery | - |

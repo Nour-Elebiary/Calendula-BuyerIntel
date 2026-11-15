@@ -257,6 +257,121 @@ def market_trademap(
         session.close()
 
 
+@app.command("search-test")
+def search_test(
+    query: str = typer.Argument(..., help="Search query to route"),
+    country: Optional[str] = typer.Option(None, help="ISO3 country for engine hints"),
+) -> None:
+    """Run one query through the search router and print results (M3)."""
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.search.router import SearchRouter
+
+    init_db(get_engine(load_settings().db_url))
+    session = get_session(load_settings().db_url)
+    install_audit(type(session))
+    try:
+        results, stats = SearchRouter(session).search(query, country=country)
+        session.commit()
+        typer.echo(stats.summary())
+        for r in results[:10]:
+            typer.echo(f"[{r.engine}] {r.title} - {r.url}")
+        if stats.unhealthy:
+            typer.echo(f"⚠ engines blocked/unhealthy: {stats.unhealthy}")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@app.command("llm-test")
+def llm_test(
+    prompt: str = typer.Argument(..., help="Prompt to send"),
+    task: str = typer.Option("default", help="Task from providers.yaml task_routing"),
+) -> None:
+    """Send one prompt through the LLM router (cache + fallback chain) (M3)."""
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.llm.router import LLMRouter
+
+    init_db(get_engine(load_settings().db_url))
+    session = get_session(load_settings().db_url)
+    install_audit(type(session))
+    try:
+        router = LLMRouter(session)
+        text = router.complete(prompt, task=task)
+        session.commit()
+        typer.echo(router.stats.summary())
+        typer.echo(text[:2000])
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@app.command("llm-health")
+def llm_health() -> None:
+    """Print per-provider LLM router health, quotas and cache stats (M3)."""
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.llm.router import LLMRouter
+
+    init_db(get_engine(load_settings().db_url))
+    session = get_session(load_settings().db_url)
+    install_audit(type(session))
+    try:
+        router = LLMRouter(session)
+        session.commit()
+        typer.echo(router.stats.summary())
+        for row in router.health():
+            flags = []
+            if not row["enabled"]:
+                flags.append("disabled")
+            if not row["has_key"]:
+                flags.append("no-key")
+            if row["cooling_down"]:
+                flags.append("cooling")
+            typer.echo(
+                f"{row['provider']:12} enabled={row['enabled']} key={'Y' if row['has_key'] else 'N'} "
+                f"day_calls={row['day_calls']} day_tokens={row['day_tokens']} "
+                f"fails={row['consecutive_failures']} {' '.join(flags)}"
+            )
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@app.command("llm-sync-catalog")
+def llm_sync_catalog() -> None:
+    """Sync the provider catalog from mnfst/awesome-free-llm-apis (M3)."""
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.llm.catalog import sync_catalog
+
+    init_db(get_engine(load_settings().db_url))
+    session = get_session(load_settings().db_url)
+    install_audit(type(session))
+    try:
+        report = sync_catalog()
+        session.commit()
+        typer.echo(f"fetched_entries={report['fetched_entries']}")
+        typer.echo(f"matched={report['matched']}")
+        typer.echo(f"new={report['new']}")
+        typer.echo(f"quota_updates={report['quota_updates']}")
+        typer.echo("Snapshot saved to data/llm_catalog_snapshot.json (providers.yaml untouched).")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
 @app.command("jobs")
 def jobs_list() -> None:
     """List configured scheduler jobs."""

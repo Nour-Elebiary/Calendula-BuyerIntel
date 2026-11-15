@@ -13,27 +13,46 @@ providers:
     rpd: 1000
     tpd: 200000
     key_env: GROQ_API_KEY
+    models:
+      bulk_extraction: llama-3.3-70b-versatile
+      judging: llama-3.3-70b-versatile
+      default: llama-3.3-70b-versatile
   gemini:
     base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
     data_class: public
     enabled: true
+    rpm: 10
+    rpd: 250
     key_env: GEMINI_API_KEY
+    models:
+      whole_site_reading: gemini-2.5-flash
+      multilingual: gemini-2.5-flash
+      bulk_extraction: gemini-2.5-flash-lite
+      judging: gemini-2.5-flash
+      default: gemini-2.5-flash
   cloudflare:
     base_url: "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
     data_class: public
     enabled: true
     key_env: CLOUDFLARE_API_TOKEN
+    models:
+      default: "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
   gonka:
     base_url: "https://proxy.gonkabroker.com/v1"
     data_class: public
     enabled: true
     key_env: GONKA_API_KEY
+    models:
+      default: gpt-oss-120b
+      embeddings: bge-m3
   zai:
     base_url: "https://api.z.ai/api/paas/v4"
     data_class: public
     enabled: true
     rpm: 1
     key_env: ZAI_API_KEY
+    models:
+      default: glm-4.7-flash
   openrouter:
     base_url: "https://openrouter.ai/api/v1"
     data_class: public
@@ -41,11 +60,23 @@ providers:
     rpm: 20
     rpd: 50
     key_env: OPENROUTER_API_KEY
+    models:
+      default: meta-llama/llama-3.3-70b-instruct:free
   ollama:
     base_url: "http://localhost:11434/v1"
     data_class: private
     enabled: false
     key_env: null
+    models:
+      default: llama3.1:8b
+
+router:
+  # Consecutive failures put a provider on cooldown before the chain moves on.
+  failure_cooldown_seconds: 300
+  max_consecutive_failures: 2
+  # Round-robin over extra keys: <KEY_ENV>_2, <KEY_ENV>_3, ... (Gemini pattern).
+  key_rotation: true
+  cache_ttl_hours: 168      # prompt-hash cache kept for a week
 
 task_routing:
   bulk_extraction: [groq, cloudflare, gemini, gonka, zai]

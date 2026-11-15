@@ -1,0 +1,5 @@
+# Translation (spec section 8). Offline first (Argos / self-hosted
+# LibreTranslate), LLM second. `none` until the user sets one up - English
+# queries are the fallback and nothing blocks.
+engine: none          # none | argos | libretranslate | llm
+libretranslate_url: ""  # e.g. http://localhost:5000
