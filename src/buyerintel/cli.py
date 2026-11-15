@@ -480,5 +480,120 @@ def serve(host: str = typer.Option("127.0.0.1"), port: int = typer.Option(8501))
     raise typer.Exit(subprocess.call(cmd))
 
 
+@app.command("score-run")
+def score_run(
+    limit: Optional[int] = typer.Option(None, help="Max companies to score"),
+    company_id: Optional[int] = typer.Option(None, help="Score a single company"),
+    tier: Optional[int] = typer.Option(None, help="Only this tier"),
+    rescore: bool = typer.Option(False, help="Re-score companies that already have a score run"),
+) -> None:
+    """Run the M5 rule chain: match products + personas, score, assign tiers."""
+    from sqlalchemy import select as _select
+
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.db.models import Company
+    from buyerintel.llm.router import LLMRouter
+    from buyerintel.score import rules as score_rules
+
+    init_db(get_engine(load_settings().db_url))
+    session = get_session(load_settings().db_url)
+    install_audit(type(session))
+    try:
+        session.commit()
+        ctx = score_rules.load_context(llm=LLMRouter(session))
+        if company_id is not None:
+            companies = [session.scalar(_select(Company).where(Company.id == company_id))]
+            if companies[0] is None:
+                typer.echo(f"no company {company_id}")
+                raise typer.Exit(1)
+        else:
+            from buyerintel.score.scoring import pending_companies
+
+            companies = pending_companies(session, limit=limit,
+                                          tiers=[tier] if tier is not None else None)
+            if rescore:
+                query = _select(Company)
+                if tier is not None:
+                    query = query.where(Company.tier == tier)
+                companies = list(session.scalars(query).all())[:limit] if limit else \
+                    list(session.scalars(query).all())
+        counts: dict[str, int] = {}
+        for company in companies:
+            result = score_rules.run_rule_chain(session, company, ctx)
+            counts[result.state or result.reason or "?"] = counts.get(result.state or result.reason or "?", 0) + 1
+        session.commit()
+        typer.echo(f"scored {len(companies)} companies")
+        for state, count in sorted(counts.items()):
+            typer.echo(f"  {state}: {count}")
+        for company in companies[:20]:
+            typer.echo(f"  #{company.id} {company.canonical_name}: "
+                       f"tier={company.tier} score={company.score} state={company.state}"
+                       f"({company.state_reason})")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@app.command("score-show")
+def score_show(company_id: int = typer.Argument(..., help="Company id")) -> None:
+    """Print the latest score breakdown for a company (reproducible)."""
+    from sqlalchemy import select as _select
+
+    from buyerintel.config import load_settings
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.db.models import Company, ScoreRun
+
+    init_db(get_engine(load_settings().db_url))
+    session = get_session(load_settings().db_url)
+    try:
+        company = session.scalar(_select(Company).where(Company.id == company_id))
+        if company is None:
+            typer.echo(f"no company {company_id}")
+            raise typer.Exit(1)
+        run = session.scalar(
+            _select(ScoreRun).where(ScoreRun.company_id == company_id)
+            .order_by(ScoreRun.id.desc())
+        )
+        if run is None:
+            typer.echo(f"company {company_id} has no score run")
+            raise typer.Exit(1)
+        components = (run.components or {}).get("components", {})
+        typer.echo(f"{company.canonical_name}: total={run.total} tier={run.tier} "
+                   f"weights=v{run.weights_version} state={company.state}({company.state_reason})")
+        for name, points in components.items():
+            typer.echo(f"  {name}: {points}")
+        detail = (run.components or {}).get("detail", {})
+        for name, info in detail.items():
+            typer.echo(f"  [{name}] {info}")
+    finally:
+        session.close()
+
+
+@app.command("score-tune")
+def score_tune() -> None:
+    """Auto-tune weights (no-op until 200 outcome-labelled leads exist)."""
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.score import autotune
+
+    init_db(get_engine(load_settings().db_url))
+    session = get_session(load_settings().db_url)
+    install_audit(type(session))
+    try:
+        report = autotune.tune(session)
+        session.commit()
+        typer.echo(str(report))
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
 if __name__ == "__main__":
     app()

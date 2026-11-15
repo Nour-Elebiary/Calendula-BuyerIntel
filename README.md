@@ -51,6 +51,10 @@ uv run buyerintel llm-sync-catalog                   # sync free-LLM provider ca
 uv run buyerintel enrich                             # run the S0-S4 enrichment pipeline (resumable)
 uv run buyerintel enrich --company-id 3              # enrich one company
 uv run buyerintel enrich-status                      # coverage meter per tier
+uv run buyerintel score-run                          # rule chain: personas, product fit, score, tier
+uv run buyerintel score-run --rescore                # re-score companies already scored
+uv run buyerintel score-show 3                       # reproducible score breakdown for company 3
+uv run buyerintel score-tune                         # auto-tune weights (no-op until 200 labelled leads)
 uv run buyerintel serve                # local Streamlit dashboard (Market Intelligence page)
 ```
 
@@ -63,8 +67,7 @@ uv run buyerintel serve                # local Streamlit dashboard (Market Intel
 | M2 | Product ontology, market module (Comtrade, Comext, Trade Map CSV, pytrends, PubMed, FX), market UI page | done |
 | M3 | Search router (engines, SearXNG option, cache, health), multilingual query builder, LLM router (quotas, rotation, fallback, schema validation) | done |
 | M4 | Enrichment engine: Scrapling crawler, fetch escalation ladder (12.1), extraction, contact verification, social discovery, OSINT adapters, archive connectors, job-post signals, progressive stages S0 to S4 | done |
-| M4 | Enrichment engine | - |
-| M5 | Personas, scoring, tiers, rule chain | - |
+| M5 | Personas (15, v2), product matching over the ontology, weighted scoring (weights v2), rule chain (9 rules), tiers, auto-tune (dormant until 200 labelled leads) | done |
 | M6 | People discovery | - |
 | M7 | Shipment sources, forecasting | - |
 | M8 | Outreach, scheduler, UI, export | - |

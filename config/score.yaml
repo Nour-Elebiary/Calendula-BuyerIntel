@@ -1,0 +1,20 @@
+# M5 scoring/rule-chain thresholds. Weights themselves live in weights.yaml
+# (versioned; auto-tuning creates new versions). Everything here is a
+# threshold or toggle, not a weight, so auto-tuning never touches this file.
+rules:
+  contact_confidence_floor: 0.5   # below this -> needs_enrichment (retry)
+  liveness_min_pages: 1           # crawl pages fetched for "website responds"
+  competitor_keywords: [exporter, "we supply", "we produce", manufacturer of,
+                        "wholesale supplier of", trading company]
+  persona_min_similarity: 0.25    # below -> parked(persona_unclear)
+  product_min_score: 0.5          # product_match rows below this are noise
+  product_borderline_band: [0.35, 0.5]  # LLM verification band (needs provider)
+  defunct_max_snapshots: 0        # archive snapshots <= this + dead site -> excluded(defunct)
+
+spec_fit_standards:
+  ph_eur: ["ph. eur", "ph.eur", "european pharmacopoeia"]
+  usp: ["usp", "united states pharmacopoeia"]
+  bp: ["bp monograph", "british pharmacopoeia"]
+  codex: ["codex", "codex alimentarius"]
+  iso: ["iso 9001", "iso 22000", "iso certified"]
+  cut_size: ["cut size", "cut", "granulation", "mesh size", "tea bag cut"]
