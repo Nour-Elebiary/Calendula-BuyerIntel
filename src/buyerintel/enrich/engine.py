@@ -1,4 +1,4 @@
-"""Progressive enrichment pipeline (spec section 6, M4 scope S0-S4).
+"""Progressive enrichment pipeline (spec section 6, M4 scope S0-S4 + M6 S5-S7).
 
 Every company enters at the cheap stage and goes deeper only if promising:
   S0 ingest/normalize/dedupe check (all)
@@ -6,6 +6,10 @@ Every company enters at the cheap stage and goes deeper only if promising:
   S2 website crawl + LLM-assisted extraction + tags (pre-score >= threshold)
   S3 multi-engine search passes in local languages (Tier 3 and up)
   S4 social discovery + job-post signals + archive snapshots (Tier 2 and up)
+  S5 people and decision-maker discovery (Tier 2 and up; deep for Tier 1)
+  S6 archive history + shipment data + news (archive done in S4; shipments
+     land with M7 - placeholder stage)
+  S7 paid-tool gate, Apollo/Hunter (Tier 1 only, section 12)
 
 The pipeline is a resumable queue: work is checkpointed per company in
 `enrich_checkpoint`, so a forced stop resumes at the next stage, and the
@@ -34,7 +38,7 @@ from buyerintel.enrich.osint import fetch_archive_snapshots, job_post_signals, s
 from buyerintel.enrich.social import discover_socials, store_socials
 from buyerintel.enrich.verify import verify_email
 
-STAGES = ["s0", "s1", "s2", "s3", "s4"]
+STAGES = ["s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7"]
 
 # Cheap pre-score keyword seeds (name/domain hits). Segment words for herbs.
 SEGMENT_KEYWORDS = [
@@ -57,13 +61,16 @@ class EnrichStats:
     s2_crawled: int = 0
     s3_searched: int = 0
     s4_signals: int = 0
+    s5_people: int = 0
+    s7_paid: int = 0
     skipped_prescore: int = 0
     errors: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
         return (
             f"companies={self.companies} s1={self.s1_prescored} s2={self.s2_crawled} "
-            f"s3={self.s3_searched} s4={self.s4_signals} "
+            f"s3={self.s3_searched} s4={self.s4_signals} s5={self.s5_people} "
+            f"s7={self.s7_paid} "
             f"skipped(prescore)={self.skipped_prescore} errors={len(self.errors)}"
         )
 
@@ -91,14 +98,14 @@ def prescore(company: Company, *, expo_count: int = 0) -> float:
 
 
 def coverage(session: Session) -> list[dict]:
-    """Coverage meter per tier: enriched (s2 done) / total companies."""
+    """Coverage meter per tier: enriched (reached S2 or deeper) / total."""
     rows = session.execute(
         select(Company.tier, func.count(Company.id)).group_by(Company.tier)
     ).all()
     enriched_rows = session.execute(
         select(Company.tier, func.count(Company.id))
         .join(EnrichCheckpoint, EnrichCheckpoint.company_id == Company.id)
-        .where(EnrichCheckpoint.stage.in_(["s2", "s3", "s4"]))
+        .where(EnrichCheckpoint.stage.in_(["s2", "s3", "s4", "s5", "s6", "s7"]))
         .where(EnrichCheckpoint.status == "done")
         .group_by(Company.tier)
     ).all()
@@ -168,14 +175,14 @@ class EnrichEngine:
 
     @staticmethod
     def _is_complete(checkpoint: EnrichCheckpoint) -> bool:
-        """Done means finished S4 or deliberately stopped (e.g. at S1).
+        """Done means finished S7 or deliberately stopped (e.g. at S1).
 
         A crash can leave (stage=X, status=done) with no stop marker when the
         process died between the stage commit and the next running-flip
         commit - such a company is still pending and resumes.
         """
         detail = checkpoint.detail or {}
-        return checkpoint.stage == "s4" or bool(detail.get("stop"))
+        return checkpoint.stage == "s7" or bool(detail.get("stop"))
 
     def run(self, *, limit: int | None = None, tiers: list[int] | None = None) -> EnrichStats:
         companies = self.pending_companies(limit=limit, tiers=tiers)
@@ -395,3 +402,44 @@ class EnrichEngine:
             except Exception as exc:  # noqa: BLE001 - archive.org down is not fatal
                 detail["archive_error"] = str(exc)
         return detail
+
+    def _stage_s5(self, company: Company) -> dict:
+        """People and decision-maker discovery (spec 12.6-12.8).
+
+        Tier 2 and up; deep for Tier 1. Tier 3 skips (per section 6);
+        companies with no tier yet (not scored) skip without stopping, so a
+        later score-run + re-enrich picks them up.
+        """
+        self.stats.s5_people += 1
+        tier = company.tier
+        if tier is None:
+            return {"skipped": "awaiting tier (score-run first)"}
+        if tier >= 3:
+            return {"skipped": "tier 3: S5 applies to tier 2 and up"}
+        deep = tier == 1
+        from buyerintel.enrich.people.discovery import discover_people
+
+        try:
+            stats = discover_people(self.session, self.search, company,
+                                    llm=self.llm, config=self.cfg, deep=deep)
+        except Exception as exc:  # noqa: BLE001 - discovery never kills the stage
+            return {"error": str(exc)[:200]}
+        return {"people_stats": stats, "deep": deep}
+
+    def _stage_s6(self, company: Company) -> dict:
+        """Archive history + shipment data + news (Tier 1).
+
+        Archive snapshots already run in S4 (M4 decision); shipment data and
+        news land with M7. Placeholder keeps the stage indexing contiguous.
+        """
+        return {"deferred": "shipment/news sources land with M7; archive ran in S4"}
+
+    def _stage_s7(self, company: Company) -> dict:
+        """Paid-tool gate (spec 12.9): Tier 1 only, credit budget enforced."""
+        self.stats.s7_paid += 1
+        from buyerintel.enrich.paid import PaidToolGate
+
+        try:
+            return PaidToolGate(self.session, config=self.cfg).run(company)
+        except Exception as exc:  # noqa: BLE001 - a paid API down is not fatal
+            return {"fired": False, "error": str(exc)[:200]}

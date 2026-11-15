@@ -108,7 +108,7 @@ def test_checkpoint_all_stages_done(enrich_engine, session, company):
     enrich_engine.run_company(company)
     session.commit()
     checkpoint = session.query(EnrichCheckpoint).filter_by(company_id=company.id).one()
-    assert checkpoint.stage == "s4"
+    assert checkpoint.stage == "s7"   # terminal since M6 (S5-S7 appended)
     assert checkpoint.status == "done"
 
 
@@ -149,7 +149,7 @@ def test_resumable_after_forced_stop(enrich_engine, session, company, monkeypatc
     assert s1_calls == []               # s1 never re-ran
     assert resumed_s2 == ["s2"]         # s2 ran exactly once on resume
     checkpoint = session.query(EnrichCheckpoint).filter_by(company_id=company.id).one()
-    assert checkpoint.stage == "s4" and checkpoint.status == "done"
+    assert checkpoint.stage == "s7" and checkpoint.status == "done"
 
 
 def test_completed_company_never_requeued(enrich_engine, session, company):
@@ -158,7 +158,7 @@ def test_completed_company_never_requeued(enrich_engine, session, company):
     assert enrich_engine.pending_companies() == []
     enrich_engine.run_company(company)         # no-op, never re-runs deeper stages
     checkpoint = session.query(EnrichCheckpoint).filter_by(company_id=company.id).one()
-    assert checkpoint.stage == "s4"
+    assert checkpoint.stage == "s7"
 
 
 def test_prescore_threshold_stops_at_s1(session):

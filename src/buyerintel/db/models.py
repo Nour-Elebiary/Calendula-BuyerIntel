@@ -415,3 +415,21 @@ class EnrichCheckpoint(Base):
     status: Mapped[str] = mapped_column(String(16), default="pending")  # pending|running|done|failed
     detail: Mapped[dict | None] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class PaidToolCall(Base):
+    """One paid-tool (Apollo/Hunter) API call, S7 paid gate (spec section 12.9).
+
+    Addition to the core table list, logged in docs/DECISIONS.md: the monthly
+    credit budget must be enforced across runs, which needs persisted usage.
+    Append-only; the budget check sums credits over the calendar month.
+    """
+
+    __tablename__ = "paid_tool_call"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ts: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    tool: Mapped[str] = mapped_column(String(32), index=True)  # apollo|hunter
+    company_id: Mapped[int] = mapped_column(ForeignKey("company.id"), index=True)
+    credits: Mapped[float] = mapped_column(Float, default=0.0)
+    outcome: Mapped[str] = mapped_column(String(32))  # ok|no_key|error|skipped_budget
+    detail: Mapped[dict | None] = mapped_column(JSON)

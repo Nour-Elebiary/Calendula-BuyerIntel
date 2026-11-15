@@ -61,8 +61,34 @@ jobs:
   role_keywords: [purchasing, procurement, buyer, sourcing, einkauf, achats, compras, 采购, 調達]
   max_results: 5
 
+people:
+  # S5 people discovery (spec 12.7, M6). CrossLinked-style enumeration runs
+  # through the search router (no login); profiles enrich via the non-login
+  # public scraper (ADD-012).
+  max_people_per_company: 8
+  max_results_per_query: 5
+
+linkedin:
+  # Spec 12.8: the NON-LOGIN public-profile scraper is the default person
+  # enrichment path (runs for all tiers, no account). Login-based adapters
+  # (StaffSpy etc.) are DISABLED: they refuse to run while enabled: false,
+  # and when enabled they require a secondary account + Tier 1 only.
+  enabled: false
+  account_profile: personal   # set to the secondary-account marker when supplied
+  public_scraper:
+    enabled: true
+    backend: builtin
+    pacing_s: 3
+
 paid_gate:
-  # S7 (spec 12.9) - adapters exist but run only when all these hold.
-  min_score: 8.0
+  # S7 (spec 12.9) - adapters exist but run only when ALL hold: Tier 1,
+  # enabled, score >= min_score, still lacks a key contact, budget left.
+  # min_score is on the M5 0-100 score scale (v2 weights); the old 8.0 was
+  # on the retired 0-10 prescore scale (logged in docs/DECISIONS.md).
+  min_score: 60.0
   monthly_credit_budget: 10
   enabled: false
+  tools: [apollo, hunter]
+  credit_cost:
+    apollo: 1.0
+    hunter: 1.0

@@ -595,5 +595,73 @@ def score_tune() -> None:
         session.close()
 
 
+@app.command("people-list")
+def people_list(
+    company_id: Optional[int] = typer.Option(None, help="Only this company"),
+    decision_makers_only: bool = typer.Option(False, "--decision-makers", help="Only decision-makers"),
+) -> None:
+    """List people with seniority, decision-maker flag and contacts (M6)."""
+    from sqlalchemy import select as _select
+
+    from buyerintel.config import load_settings
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.db.models import Company, ContactPoint, Person
+
+    init_db(get_engine(load_settings().db_url))
+    session = get_session(load_settings().db_url)
+    try:
+        query = _select(Person).order_by(Person.company_id, Person.id)
+        if company_id is not None:
+            query = query.where(Person.company_id == company_id)
+        if decision_makers_only:
+            query = query.where(Person.is_decision_maker.is_(True))
+        people = session.scalars(query).all()
+        if not people:
+            typer.echo("no people found")
+            return
+        companies = {c.id: c.canonical_name for c in session.scalars(_select(Company)).all()}
+        for person in people:
+            contacts = session.scalars(
+                _select(ContactPoint).where(ContactPoint.owner_type == "person",
+                                            ContactPoint.owner_id == person.id)
+            ).all()
+            contact_text = "; ".join(f"{c.kind}:{c.value}" for c in contacts) or "-"
+            typer.echo(
+                f"#{person.id} {companies.get(person.company_id, '?')} | "
+                f"{person.full_name} | {person.title or '-'} | {person.seniority or '-'} | "
+                f"dm={'yes' if person.is_decision_maker else 'no'} | {contact_text}"
+            )
+    finally:
+        session.close()
+
+
+@app.command("paid-gate-status")
+def paid_gate_status() -> None:
+    """Show S7 paid-tool gate config, credits used this month, eligible companies."""
+    from sqlalchemy import select as _select
+
+    from buyerintel.config import load_settings
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.db.models import Company
+    from buyerintel.enrich.paid import PaidToolGate, credits_used_this_month
+
+    init_db(get_engine(load_settings().db_url))
+    session = get_session(load_settings().db_url)
+    try:
+        gate = PaidToolGate(session)
+        used = credits_used_this_month(session)
+        budget = float(gate.gate_cfg.get("monthly_credit_budget", 10.0))
+        typer.echo(f"enabled={gate.gate_cfg.get('enabled', False)} "
+                   f"min_score={gate.gate_cfg.get('min_score')} "
+                   f"credits={used}/{budget} budget_left={gate.budget_left():g}")
+        for company in session.scalars(_select(Company)).all():
+            eligible, reason = gate.eligibility(company)
+            if eligible:
+                typer.echo(f"  ELIGIBLE #{company.id} {company.canonical_name} "
+                           f"(score={company.score})")
+    finally:
+        session.close()
+
+
 if __name__ == "__main__":
     app()

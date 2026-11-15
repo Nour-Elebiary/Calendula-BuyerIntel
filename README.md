@@ -48,13 +48,16 @@ uv run buyerintel search-test "herb buyer germany"   # route one query through t
 uv run buyerintel llm-test "summarize this page"     # one prompt through the LLM router
 uv run buyerintel llm-health                         # per-provider health, quotas, cache stats
 uv run buyerintel llm-sync-catalog                   # sync free-LLM provider catalog
-uv run buyerintel enrich                             # run the S0-S4 enrichment pipeline (resumable)
+uv run buyerintel enrich                             # run the S0-S7 enrichment pipeline (resumable)
 uv run buyerintel enrich --company-id 3              # enrich one company
 uv run buyerintel enrich-status                      # coverage meter per tier
 uv run buyerintel score-run                          # rule chain: personas, product fit, score, tier
 uv run buyerintel score-run --rescore                # re-score companies already scored
 uv run buyerintel score-show 3                       # reproducible score breakdown for company 3
 uv run buyerintel score-tune                         # auto-tune weights (no-op until 200 labelled leads)
+uv run buyerintel people-list                        # people + seniority + decision-maker flags (M6)
+uv run buyerintel people-list --decision-makers      # only decision-makers
+uv run buyerintel paid-gate-status                   # S7 Apollo/Hunter gate: budget + eligible companies
 uv run buyerintel serve                # local Streamlit dashboard (Market Intelligence page)
 ```
 
@@ -68,7 +71,7 @@ uv run buyerintel serve                # local Streamlit dashboard (Market Intel
 | M3 | Search router (engines, SearXNG option, cache, health), multilingual query builder, LLM router (quotas, rotation, fallback, schema validation) | done |
 | M4 | Enrichment engine: Scrapling crawler, fetch escalation ladder (12.1), extraction, contact verification, social discovery, OSINT adapters, archive connectors, job-post signals, progressive stages S0 to S4 | done |
 | M5 | Personas (15, v2), product matching over the ontology, weighted scoring (weights v2), rule chain (9 rules), tiers, auto-tune (dormant until 200 labelled leads) | done |
-| M6 | People discovery | - |
+| M6 | People discovery: seniority buckets + decision-makers, CrossLinked-style search enumeration, non-login public LinkedIn scraper (ADD-012), email pattern engine (ADD-004), S7 paid-tool gate (Apollo/Hunter, Tier-1-only, credit budget), stages S5-S7 | done |
 | M7 | Shipment sources, forecasting | - |
 | M8 | Outreach, scheduler, UI, export | - |
 
