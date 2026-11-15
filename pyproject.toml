@@ -17,6 +17,8 @@ dependencies = [
     "pytrends>=4.9.2",
     "streamlit>=1.67.0",
     "ddgs>=9.16.1",
+    "scrapling>=0.5.1",
+    "dnspython>=2.9.2",
 ]
 
 [project.scripts]

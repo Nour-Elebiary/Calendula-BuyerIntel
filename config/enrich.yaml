@@ -1,0 +1,68 @@
+# Enrichment engine config (spec sections 6 and 12).
+stages:
+  # Every company enters at the cheap stage and goes deeper only if promising
+  # (spec section 6). S1 pre-score above threshold unlocks S2.
+  prescore_threshold: 3.0    # S1 score needed to run S2 (website crawl)
+
+crawl:
+  # Spec 12.1: pages crawled per site, in priority order.
+  pages: [home, about, contact, team, products, catalog, sourcing, suppliers]
+  discover_paths:
+    - ""
+    - "/about"
+    - "/about-us"
+    - "/contact"
+    - "/contact-us"
+    - "/team"
+    - "/products"
+    - "/catalog"
+    - "/sourcing"
+    - "/suppliers"
+  max_pages: 12
+  respect_robots_txt: true
+
+tags:
+  # Informational tags parsed from site text (spec 12.3). NOT tier inputs.
+  organic: [organic, bio, ecologisch, biologisch, öko, bio-zertifizierung, usda organic, eu organic]
+  conventional: [conventional, konventionell]
+  fair_trade: [fair trade, fairtrade, fairtrade international]
+  halal: [halal]
+  kosher: [kosher]
+  private_label: [private label, white label, eigenmarke]
+  haccp: [haccp]
+  iso: [iso 9001, iso 22000, iso22000]
+  fda: [fda registered, fda compliant]
+
+ladder:
+  # Fetch escalation ladder (spec 12.1). Rungs 4-6 are config-flagged and OFF
+  # by default (addendum 4.8): botasaurus, FlareSolverr, CAPTCHA solver.
+  rung2_scrapling_stealth: true
+  rung3_scrapling_dynamic: true
+  rung4_botasaurus: false
+  rung5_flaresolverr: false   # also needs engines.yaml escalation flag
+  rung6_captcha: false        # also needs engines.yaml escalation flag
+  block_status_codes: [403, 429, 503]
+
+social:
+  # Brand-handle platforms (spec 12.5). Search-engine based; Sherlock/
+  # Maigret adapters land later as optional extras.
+  platforms:
+    linkedin: "site:linkedin.com/company {name}"
+    facebook: "site:facebook.com {name}"
+    instagram: "site:instagram.com {name}"
+    tiktok: "site:tiktok.com {name}"
+    youtube: "site:youtube.com {name}"
+    x: "site:x.com OR site:twitter.com {name}"
+  max_results_per_platform: 3
+
+jobs:
+  # Job-post signals (spec 12.7c): purchasing-role job posts are an expansion
+  # signal for that company.
+  role_keywords: [purchasing, procurement, buyer, sourcing, einkauf, achats, compras, 采购, 調達]
+  max_results: 5
+
+paid_gate:
+  # S7 (spec 12.9) - adapters exist but run only when all these hold.
+  min_score: 8.0
+  monthly_credit_budget: 10
+  enabled: false

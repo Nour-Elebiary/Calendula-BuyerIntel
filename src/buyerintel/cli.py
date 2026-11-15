@@ -286,6 +286,77 @@ def search_test(
         session.close()
 
 
+@app.command("enrich")
+def enrich(
+    limit: Optional[int] = typer.Option(None, help="Max companies to process (None = whole queue)"),
+    tier: Optional[int] = typer.Option(None, help="Only this tier"),
+    company_id: Optional[int] = typer.Option(None, help="Run a single company"),
+) -> None:
+    """Run the progressive enrichment pipeline S0-S4, resumable (M4)."""
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.enrich.engine import EnrichEngine
+    from buyerintel.llm.router import LLMRouter
+    from buyerintel.search.router import SearchRouter
+
+    init_db(get_engine(load_settings().db_url))
+    session = get_session(load_settings().db_url)
+    install_audit(type(session))
+    try:
+        tiers = [tier] if tier is not None else None
+        engine = EnrichEngine(session, llm=LLMRouter(session), search=SearchRouter(session))
+        if company_id is not None:
+            from sqlalchemy import select as _select
+            from buyerintel.db.models import Company as _Company
+
+            target = session.scalar(_select(_Company).where(_Company.id == company_id))
+            if target is None:
+                typer.echo(f"no company {company_id}")
+                raise typer.Exit(1)
+            engine.run_company(target)
+            session.commit()
+        else:
+            engine.run(limit=limit, tiers=tiers)
+            session.commit()
+        typer.echo(engine.stats.summary())
+        for error in engine.stats.errors[:10]:
+            typer.echo(f"error: {error}")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@app.command("enrich-status")
+def enrich_status() -> None:
+    """Coverage meter per tier (enriched / total) (M4)."""
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.enrich.engine import coverage
+
+    init_db(get_engine(load_settings().db_url))
+    session = get_session(load_settings().db_url)
+    install_audit(type(session))
+    try:
+        session.commit()
+        rows = coverage(session)
+        if not rows:
+            typer.echo("no companies yet")
+        for row in rows:
+            typer.echo(
+                f"tier {row['tier']}: enriched {row['enriched']}/{row['total']} "
+                f"({row['coverage']:.0%})"
+            )
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
 @app.command("llm-test")
 def llm_test(
     prompt: str = typer.Argument(..., help="Prompt to send"),

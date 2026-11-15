@@ -246,18 +246,21 @@ class LLMRouter:
 
     def _cache_put(self, provider: str, model: str, p_hash: str, task: str,
                    text: str, tokens_in: int, tokens_out: int) -> None:
-        self.session.merge(
-            LlmCache(
-                provider=provider,
-                model=model,
-                prompt_hash=p_hash,
-                task=task,
-                response_text=text,
-                tokens_in=tokens_in,
-                tokens_out=tokens_out,
-                created_at=datetime.now(timezone.utc),
+        row = self.session.scalar(
+            select(LlmCache).where(
+                LlmCache.provider == provider,
+                LlmCache.model == model,
+                LlmCache.prompt_hash == p_hash,
             )
         )
+        if row is None:
+            row = LlmCache(provider=provider, model=model, prompt_hash=p_hash)
+            self.session.add(row)
+        row.task = task
+        row.response_text = text
+        row.tokens_in = tokens_in
+        row.tokens_out = tokens_out
+        row.created_at = datetime.now(timezone.utc)
         self.session.flush()
 
     # ------------------------------------------------------------------- call

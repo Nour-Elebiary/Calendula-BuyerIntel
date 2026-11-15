@@ -397,3 +397,21 @@ class LlmCache(Base):
     tokens_out: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     __table_args__ = (UniqueConstraint("provider", "model", "prompt_hash"),)
+
+
+class EnrichCheckpoint(Base):
+    """Per-company enrichment checkpoint (spec section 6: resumable queue).
+
+    Addition to the core table list, logged in docs/DECISIONS.md: the spec
+    requires checkpointed, resumable per-company work but names no table.
+    One row per company; `stage` is the last COMPLETED stage (s0..s4), so a
+    forced stop resumes at the next stage.
+    """
+
+    __tablename__ = "enrich_checkpoint"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("company.id"), unique=True, index=True)
+    stage: Mapped[str] = mapped_column(String(8), default="")
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending|running|done|failed
+    detail: Mapped[dict | None] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)

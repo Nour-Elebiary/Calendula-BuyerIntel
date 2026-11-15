@@ -224,14 +224,13 @@ class SearchRouter:
 
     def _cache_put(self, results: list[SearchResult], engine: str, query: str) -> None:
         key = cache_key(engine, query)
-        self.session.merge(
-            SearchCache(
-                cache_key=key,
-                engine=engine,
-                results_json=[r.as_dict() for r in results],
-                fetched_at=datetime.now(timezone.utc),
-            )
-        )
+        row = self.session.scalar(select(SearchCache).where(SearchCache.cache_key == key))
+        if row is None:
+            row = SearchCache(cache_key=key)
+            self.session.add(row)
+        row.engine = engine
+        row.results_json = [r.as_dict() for r in results]
+        row.fetched_at = datetime.now(timezone.utc)
         self.session.flush()
 
     # ----------------------------------------------------------------- search
