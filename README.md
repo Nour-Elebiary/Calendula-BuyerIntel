@@ -35,13 +35,25 @@ uv run pytest                # run the test suite
 uv run buyerintel --help     # CLI
 ```
 
+## Key CLI commands
+
+```powershell
+uv run buyerintel init                 # create the DB schema
+uv run buyerintel seed-products        # seed the 42-product catalog + HS candidates
+uv run buyerintel market-signals       # FX rates + PubMed counts + Google Trends
+uv run buyerintel market-comtrade      # Egypt trade flows from UN Comtrade (rate-limited, budgeted)
+uv run buyerintel market-comext        # EU27 imports from Egypt via Eurostat Comext
+uv run buyerintel market-trademap --file path\to\export.csv   # ITC Trade Map CSV import
+uv run buyerintel serve                # local Streamlit dashboard (Market Intelligence page)
+```
+
 ## Milestones
 
 | M | Scope | Status |
 | --- | --- | --- |
-| M0 | Repo, config, DB schema, audit layer, CLI, idempotent import | in progress |
-| M1 | Entity resolution, expo ingestion | - |
-| M2 | Product ontology, market module | - |
+| M0 | Repo, config, DB schema, audit layer, CLI, idempotent import | done |
+| M1 | Entity resolution, expo ingestion | done |
+| M2 | Product ontology, market module (Comtrade, Comext, Trade Map CSV, pytrends, PubMed, FX), market UI page | done |
 | M3 | Search router, LLM router | - |
 | M4 | Enrichment engine | - |
 | M5 | Personas, scoring, tiers, rule chain | - |

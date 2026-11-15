@@ -46,3 +46,54 @@ def test_product_aliases_stored_as_synonyms(session):
     assert "karkade" in synonym_names  # hibiscus
     assert "molokhia" in synonym_names  # jew's mallow
     assert "black seed" in synonym_names  # nigella
+
+
+def test_seed_products_stores_latin_and_misspelling_kinds(session):
+    from buyerintel.catalog import seed_products
+
+    seed_products(session)
+    session.commit()
+    by_kind = {}
+    for pn in session.scalars(select(ProductName)).all():
+        by_kind.setdefault(pn.kind, set()).add(pn.name)
+    assert "hibiscus sabdariffa" in by_kind.get("latin", set())
+    assert "hibiscus subdariffa" in by_kind.get("misspelling", set())
+    assert "melissa officinanalfs" in by_kind.get("misspelling", set())
+    assert "sesamurrindicum" in by_kind.get("misspelling", set())
+
+
+def test_seed_hs_creates_candidates_and_is_idempotent(session):
+    from buyerintel.catalog import seed_hs, seed_products
+    from buyerintel.db.models import HsCandidate
+
+    seed_products(session)
+    session.commit()
+    stats = seed_hs(session)
+    session.commit()
+    assert stats.hs_candidates > 0
+    assert stats.skipped == []
+    total = session.scalar(select(func.count()).select_from(HsCandidate))
+    # rerun must not duplicate
+    stats2 = seed_hs(session)
+    session.commit()
+    assert stats2.hs_candidates == 0
+    assert session.scalar(select(func.count()).select_from(HsCandidate)) == total
+
+    # spot check: sesame primary code
+    sesame = session.scalar(select(Product).where(Product.name == "sesame"))
+    sesame_codes = {
+        c.hs_code: c for c in session.scalars(
+            select(HsCandidate).where(HsCandidate.product_id == sesame.id)
+        ).all()
+    }
+    assert "120740" in sesame_codes
+    assert sesame_codes["120740"].is_primary is True
+    assert sesame_codes["120740"].confidence >= 0.9
+
+
+def test_seed_hs_reports_unknown_products(session):
+    from buyerintel.catalog import seed_hs
+
+    stats = seed_hs(session)  # no products seeded yet
+    assert stats.hs_candidates == 0
+    assert len(stats.skipped) >= 40  # every product name missing

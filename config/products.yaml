@@ -20,27 +20,27 @@ products:
   - {name: dill, latin_name: Anethum graveolens, part: seeds, forms: [leaves, seeds]}
   - {name: echinacea, latin_name: Echinacea angustifolia, part: flowers, forms: [flowers, TBC]}
   - {name: fennel, latin_name: Foeniculum vulgare, part: seeds}
-  - {name: fenugreek, latin_name: Trigonella foenum-graecum, part: seeds, forms: [leaves, seeds]}
+  - {name: fenugreek, latin_name: Trigonella foenum-graecum, part: seeds, forms: [leaves, seeds], aliases: [methi]}
   - {name: garlic, latin_name: Allium sativum, part: bulb}
-  - {name: hibiscus, latin_name: Hibiscus sabdariffa, part: flowers, forms: [flowers, petals, TBC, powder, sifting], aliases: [karkade, roselle]}
+  - {name: hibiscus, latin_name: Hibiscus sabdariffa, part: flowers, forms: [flowers, petals, TBC, powder, sifting], aliases: [karkade, roselle, sorrel], misspellings: [hibiscus subdariffa]}
   - {name: lime lemon, latin_name: Citrus limon, part: fruit, aliases: [lemon, lime]}
   - {name: lemongrass, latin_name: Cymbopogon citratus, part: leaves}
-  - {name: lemon balm, latin_name: Melissa officinalis, part: leaves, forms: [leaves, TBC]}
+  - {name: lemon balm, latin_name: Melissa officinalis, part: leaves, forms: [leaves, TBC], misspellings: [melissa officinanalfs]}
   - {name: lemon verbena, latin_name: Aloysia citrodora, part: leaves, forms: [leaves, TBC]}
   - {name: liquorice, latin_name: Glycyrrhiza glabra, part: roots, aliases: [licorice]}
   - {name: marjoram, latin_name: Origanum majorana, part: leaves}
   - {name: jew's mallow, latin_name: Corchorus olitorius, part: leaves, aliases: [molokhia, jute mallow]}
   - {name: nettle, latin_name: Urtica dioica, part: leaves}
-  - {name: nigella, latin_name: Nigella sativa, part: seeds, aliases: [black cumin, black seed]}
+  - {name: nigella, latin_name: Nigella sativa, part: seeds, aliases: [black cumin, black seed, kalonji]}
   - {name: olive leaf, latin_name: Olea europaea, part: leaves, aliases: [olive]}
   - {name: onion, latin_name: Allium cepa, part: bulb}
-  - {name: parsley, latin_name: Petroselinum crispum, part: leaves, forms: [leaves, seeds]}
+  - {name: parsley, latin_name: Petroselinum crispum, part: leaves, forms: [leaves, seeds], misspellings: [petroselinum saivum]}
   - {name: peppermint, latin_name: Mentha × piperita, part: leaves, forms: [leaves, crushed, TBC]}
   - {name: rose, latin_name: Rosa damascena, part: petals}
-  - {name: rosemary, latin_name: Salvia rosmarinus, part: leaves}
+  - {name: rosemary, latin_name: Salvia rosmarinus, part: leaves, misspellings: [rosemarinus]}
   - {name: sage, latin_name: Salvia officinalis, part: leaves}
   - {name: senna, latin_name: Senna alexandrina, part: pods, forms: [pods, leaves]}
-  - {name: sesame, latin_name: Sesamum indicum, part: seeds}
+  - {name: sesame, latin_name: Sesamum indicum, part: seeds, misspellings: [sesamurrindicum]}
   - {name: spearmint, latin_name: Mentha spicata, part: leaves}
   - {name: thyme, latin_name: Thymus vulgaris, part: leaves}
   - {name: orange peel, latin_name: Citrus sinensis, part: peel, aliases: [orange]}

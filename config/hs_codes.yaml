@@ -1,0 +1,103 @@
+# HS candidates per product (6-digit HS-2022 codes).
+# ORIENTATION ONLY: confidence scores are estimates; every code must be verified
+# with a customs broker or lab before quoting. The liquorice and nigella
+# classification concern the owner flagged is kept explicit below.
+# Seeded into the hs_candidate table by `buyerintel seed-products`.
+codes:
+  aniseed:
+    - {code: "090961", confidence: 0.9, primary: true}   # anise/badian seeds
+    - {code: "121190", confidence: 0.4, primary: false}
+  alfalfa:
+    - {code: "121410", confidence: 0.5, primary: true}   # lucerne (alfalfa) meal/pellets
+    - {code: "121190", confidence: 0.4, primary: false}
+  basil:
+    - {code: "121190", confidence: 0.6, primary: true}   # herbs used mainly in pharmacy/perfumery
+  beet root:
+    - {code: "210690", confidence: 0.5, primary: true, flagged: true}  # food preparations
+    - {code: "121190", confidence: 0.3, primary: false}
+  calendula:
+    - {code: "121190", confidence: 0.75, primary: true}
+  caraway:
+    - {code: "090964", confidence: 0.9, primary: true}
+  celery:
+    - {code: "071290", confidence: 0.4, primary: true, flagged: true}  # dried vegetables, other
+    - {code: "120799", confidence: 0.3, primary: false}
+  chamomile:
+    - {code: "121190", confidence: 0.75, primary: true}
+  chicory:
+    - {code: "121291", confidence: 0.5, primary: true, flagged: true}  # roots
+    - {code: "121190", confidence: 0.4, primary: false}
+  chilli:
+    - {code: "090421", confidence: 0.85, primary: true}  # dried, neither crushed nor ground
+    - {code: "090422", confidence: 0.6, primary: false}
+  coriander:
+    - {code: "090962", confidence: 0.9, primary: true}   # coriander seeds
+    - {code: "121190", confidence: 0.3, primary: false}  # leaf (cilantro) lines
+  cumin:
+    - {code: "090963", confidence: 0.95, primary: true}
+  dill:
+    - {code: "121190", confidence: 0.4, primary: true, flagged: true}
+    - {code: "120799", confidence: 0.3, primary: false}
+  echinacea:
+    - {code: "121190", confidence: 0.7, primary: true}
+  fennel:
+    - {code: "090965", confidence: 0.9, primary: true}
+  fenugreek:
+    - {code: "091099", confidence: 0.5, primary: true, flagged: true}  # owner-flagged classification
+    - {code: "121190", confidence: 0.4, primary: false}
+  garlic:
+    - {code: "071290", confidence: 0.8, primary: true}   # dried garlic
+  hibiscus:
+    - {code: "121190", confidence: 0.65, primary: true, flagged: true} # karkade placement varies
+  lime lemon:
+    - {code: "080550", confidence: 0.6, primary: true, flagged: true}  # fresh lemons/limes
+  lemongrass:
+    - {code: "121190", confidence: 0.6, primary: true}
+  lemon balm:
+    - {code: "121190", confidence: 0.6, primary: true}
+  lemon verbena:
+    - {code: "121190", confidence: 0.6, primary: true}
+  liquorice:
+    - {code: "121220", confidence: 0.85, primary: true, flagged: true} # owner-flagged classification
+    - {code: "130220", confidence: 0.3, primary: false}  # extracts
+  marjoram:
+    - {code: "091099", confidence: 0.55, primary: true, flagged: true}
+    - {code: "121190", confidence: 0.45, primary: false}
+  jew's mallow:
+    - {code: "071290", confidence: 0.5, primary: true, flagged: true}  # molokhia
+  nettle:
+    - {code: "121190", confidence: 0.6, primary: true}
+  nigella:
+    - {code: "120799", confidence: 0.5, primary: true, flagged: true}  # owner-flagged classification
+    - {code: "090969", confidence: 0.3, primary: false}
+  olive leaf:
+    - {code: "121190", confidence: 0.6, primary: true}
+  onion:
+    - {code: "071220", confidence: 0.85, primary: true}  # dried onions
+  parsley:
+    - {code: "071290", confidence: 0.5, primary: true, flagged: true}
+    - {code: "121190", confidence: 0.4, primary: false}
+  peppermint:
+    - {code: "121190", confidence: 0.7, primary: true}
+  rose:
+    - {code: "121190", confidence: 0.5, primary: true, flagged: true}  # damask petals
+  rosemary:
+    - {code: "121190", confidence: 0.6, primary: true}
+  sage:
+    - {code: "121190", confidence: 0.6, primary: true}
+  senna:
+    - {code: "121190", confidence: 0.7, primary: true}
+  sesame:
+    - {code: "120740", confidence: 0.95, primary: true}
+  spearmint:
+    - {code: "121190", confidence: 0.7, primary: true}
+  thyme:
+    - {code: "091099", confidence: 0.85, primary: true}   # dried thyme
+  orange peel:
+    - {code: "081400", confidence: 0.9, primary: true}    # citrus peel, fresh or dried
+  leek:
+    - {code: "071290", confidence: 0.4, primary: true, flagged: true}
+  flax:
+    - {code: "120400", confidence: 0.9, primary: true}
+  moringa:
+    - {code: "121190", confidence: 0.7, primary: true}

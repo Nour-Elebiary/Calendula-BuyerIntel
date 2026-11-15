@@ -252,6 +252,24 @@ class TradeFlow(Base):
     __table_args__ = (UniqueConstraint("reporter", "partner", "hs", "period"),)
 
 
+class MarketSignal(Base):
+    """Demand signals (spec section 15): Google Trends, PubMed counts, FX, GDELT.
+
+    Addition to the core table list, logged in docs/DECISIONS.md: the spec's
+    section-5 core tables have no home for demand signals, but section 15
+    requires storing them. One row per (source, subject, period).
+    """
+
+    __tablename__ = "market_signal"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(32), index=True)  # trends|pubmed|fx|gdelt
+    subject: Mapped[str] = mapped_column(String(128), index=True)  # product / currency pair / topic
+    period: Mapped[str] = mapped_column(String(16), index=True)
+    value: Mapped[float | None] = mapped_column(Float)
+    raw_json: Mapped[dict | None] = mapped_column(JSON)
+    __table_args__ = (UniqueConstraint("source", "subject", "period"),)
+
+
 class ArchiveSnapshot(Base):
     __tablename__ = "archive_snapshot"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

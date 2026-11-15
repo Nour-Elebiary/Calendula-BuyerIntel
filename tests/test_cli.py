@@ -18,7 +18,17 @@ def test_run_reports_pending_module():
     assert result.exit_code == 0
 
 
-def test_serve_is_a_stub():
+def test_serve_launches_streamlit(monkeypatch):
+    import subprocess
+
+    called: dict = {}
+
+    def fake_call(cmd):
+        called["cmd"] = cmd
+        return 0
+
+    monkeypatch.setattr(subprocess, "call", fake_call)
     result = runner.invoke(app, ["serve"])
     assert result.exit_code == 0
-    assert "M8" in result.output
+    assert any("app.py" in str(part) for part in called["cmd"])
+    assert any("streamlit" in str(part) for part in called["cmd"])

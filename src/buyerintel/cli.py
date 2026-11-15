@@ -123,8 +123,8 @@ def dedupe() -> None:
 
 @app.command("seed-products")
 def seed_products_cmd() -> None:
-    """Upsert the 42-product catalog from config/products.yaml (idempotent)."""
-    from buyerintel.catalog import seed_products
+    """Upsert the 42-product catalog and its HS candidates (idempotent)."""
+    from buyerintel.catalog import seed_hs, seed_products
     from buyerintel.config import load_settings
     from buyerintel.db.audit import install_audit
     from buyerintel.db.engine import get_engine, get_session, init_db
@@ -135,8 +135,121 @@ def seed_products_cmd() -> None:
     install_audit(type(session))
     try:
         stats = seed_products(session)
+        typer.echo(stats.summary())
+        hs_stats = seed_hs(session)  # after products; unknown names are reported
+        session.commit()
+        typer.echo(hs_stats.summary())
+        if hs_stats.skipped:
+            typer.echo(f"HS codes skipped (no matching product): {hs_stats.skipped}")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def _open_market_session():
+    """Shared bootstrapping for market commands."""
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+
+    settings = load_settings()
+    init_db(get_engine(settings.db_url))
+    session = get_session(settings.db_url)
+    install_audit(type(session))
+    return session
+
+
+@app.command("market-comtrade")
+def market_comtrade(
+    years: str = typer.Option("", help="Comma-separated years (blank = config window)"),
+    hs: str = typer.Option("", help="Comma-separated HS codes (blank = catalog codes)"),
+    max_calls: int = typer.Option(0, help="Call budget (0 = config default)"),
+) -> None:
+    """Fetch Egypt trade flows from UN Comtrade into trade_flow (M2)."""
+    from buyerintel.market.comtrade import fetch_comtrade
+
+    session = _open_market_session()
+    try:
+        year_list = [int(y) for y in years.split(",") if y.strip()] or None
+        hs_list = [c.strip() for c in hs.split(",") if c.strip()] or None
+        stats = fetch_comtrade(
+            session,
+            years=year_list,
+            hs_codes=hs_list,
+            max_calls=max_calls or None,
+        )
         session.commit()
         typer.echo(stats.summary())
+        if stats.skipped:
+            typer.echo(f"skipped: {stats.skipped}")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@app.command("market-comext")
+def market_comext(
+    years: str = typer.Option("", help="Comma-separated years (blank = 2023-2025)"),
+    hs: str = typer.Option("", help="Comma-separated HS codes (blank = catalog codes)"),
+) -> None:
+    """Fetch EU27 import flows from Egypt via Eurostat Comext (M2)."""
+    from buyerintel.market.comext import fetch_comext
+
+    session = _open_market_session()
+    try:
+        year_list = [int(y) for y in years.split(",") if y.strip()] or None
+        hs_list = [c.strip() for c in hs.split(",") if c.strip()] or None
+        stats = fetch_comext(session, years=year_list, hs_codes=hs_list)
+        session.commit()
+        typer.echo(stats.summary())
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@app.command("market-signals")
+def market_signals(
+    no_trends: bool = typer.Option(False, help="Skip Google Trends (pytrends)"),
+) -> None:
+    """Collect demand signals: FX rates, PubMed counts, Google Trends (M2)."""
+    from buyerintel.market.signals import fetch_signals
+
+    session = _open_market_session()
+    try:
+        stats = fetch_signals(session, include_trends=not no_trends)
+        session.commit()
+        typer.echo(stats.summary())
+        if stats.errors:
+            typer.echo("errors:")
+            for err in stats.errors:
+                typer.echo(f"  - {err}")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@app.command("market-trademap")
+def market_trademap(
+    file: Path = typer.Argument(..., exists=True, readable=True, help="ITC Trade Map CSV export"),
+) -> None:
+    """Import a user-downloaded ITC Trade Map CSV into trade_flow (M2)."""
+    from buyerintel.market.trademap import import_trademap_csv
+
+    session = _open_market_session()
+    try:
+        stats = import_trademap_csv(session, file)
+        session.commit()
+        typer.echo(stats.summary())
+        if stats.skipped:
+            typer.echo(f"skipped rows: {len(stats.skipped)}")
     except Exception:
         session.rollback()
         raise
@@ -166,8 +279,19 @@ def run(job_id: str = typer.Argument(..., help="Job id from config/schedules.yam
 
 @app.command()
 def serve(host: str = typer.Option("127.0.0.1"), port: int = typer.Option(8501)) -> None:
-    """Start the local UI (stub until the ui module lands)."""
-    typer.echo(f"UI will serve on http://{host}:{port} at milestone M8.")
+    """Start the local Streamlit UI (Market Intelligence at M2, full UI at M8)."""
+    import subprocess
+    import sys
+
+    app_path = Path(__file__).parent / "ui" / "app.py"
+    cmd = [
+        sys.executable, "-m", "streamlit", "run", str(app_path),
+        "--server.address", host,
+        "--server.port", str(port),
+        "--server.headless", "true",
+    ]
+    typer.echo(f"UI starting on http://{host}:{port} (Ctrl+C to stop)")
+    raise typer.Exit(subprocess.call(cmd))
 
 
 if __name__ == "__main__":

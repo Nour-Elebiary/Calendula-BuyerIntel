@@ -20,13 +20,41 @@ class SeedStats:
     created: int = 0
     updated: int = 0
     aliases: int = 0
+    misspellings: int = 0
+    hs_candidates: int = 0
     skipped: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
         return (
             f"products created={self.created} updated={self.updated} "
-            f"aliases={self.aliases}"
+            f"aliases={self.aliases} misspellings={self.misspellings} "
+            f"hs_candidates={self.hs_candidates}"
         )
+
+
+def _name_kind_for(product_id: int, name: str, kind: str, language: str) -> ProductName:
+    return ProductName(product_id=product_id, language=language, kind=kind, name=name)
+
+
+def _ensure_name(
+    session: Session, product_id: int, name: str, kind: str, language: str, stats: SeedStats
+) -> None:
+    name = name.strip().lower()
+    if not name:
+        return
+    existing = session.scalar(
+        select(ProductName).where(
+            ProductName.product_id == product_id,
+            ProductName.name == name,
+            ProductName.kind == kind,
+        )
+    )
+    if existing is None:
+        session.add(_name_kind_for(product_id, name, kind, language))
+        if kind == "misspelling":
+            stats.misspellings += 1
+        elif kind == "synonym":
+            stats.aliases += 1
 
 
 def seed_products(session: Session, *, source: str = "products.yaml") -> SeedStats:
@@ -54,21 +82,53 @@ def seed_products(session: Session, *, source: str = "products.yaml") -> SeedSta
             stats.created += 1
         else:
             stats.updated += 1
+
+        # Ontology names: common (the catalog name), latin, synonyms, misspellings.
+        _ensure_name(session, product.id, name, "common", "en", stats)
+        if entry.get("latin_name"):
+            _ensure_name(session, product.id, entry["latin_name"].strip().lower(), "latin", "la", stats)
         for alias in entry.get("aliases", []):
-            alias_name = str(alias).strip().lower()
+            _ensure_name(session, product.id, str(alias), "synonym", "en", stats)
+        for misspelling in entry.get("misspellings", []):
+            _ensure_name(session, product.id, str(misspelling), "misspelling", "en", stats)
+    session.flush()
+    return stats
+
+
+def seed_hs(session: Session, *, source: str = "hs_codes.yaml") -> SeedStats:
+    """Upsert HS candidates from config/hs_codes.yaml (idempotent per product+code)."""
+    from buyerintel.db.models import HsCandidate
+
+    session.info["audit_source"] = f"seed:{source}"
+    data = load_yaml("hs_codes.yaml")
+    stats = SeedStats()
+    for product_name, entries in data.get("codes", {}).items():
+        product = session.scalar(select(Product).where(Product.name == str(product_name).lower()))
+        if product is None:
+            stats.skipped.append(product_name)  # seeded after products, never before
+            continue
+        for entry in entries:
+            code = str(entry["code"])
             existing = session.scalar(
-                select(ProductName).where(
-                    ProductName.product_id == product.id,
-                    ProductName.name == alias_name,
-                    ProductName.kind == "synonym",
+                select(HsCandidate).where(
+                    HsCandidate.product_id == product.id,
+                    HsCandidate.hs_code == code,
                 )
             )
+            confidence = float(entry.get("confidence", 0.0))
+            is_primary = bool(entry.get("primary", False))
             if existing is None:
                 session.add(
-                    ProductName(
-                        product_id=product.id, language="en", kind="synonym", name=alias_name
+                    HsCandidate(
+                        product_id=product.id,
+                        hs_code=code,
+                        confidence=confidence,
+                        is_primary=is_primary,
                     )
                 )
-                stats.aliases += 1
+                stats.hs_candidates += 1
+            else:
+                existing.confidence = confidence
+                existing.is_primary = is_primary
     session.flush()
     return stats
