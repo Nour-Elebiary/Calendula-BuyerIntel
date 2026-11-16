@@ -3,9 +3,39 @@
 misfire_grace_s: 3600
 coalesce: true
 
-jobs: []
-# Example:
-# - id: expo_refresh
-#   cron: "0 6 * * 1"
-#   task: buyerintel.connectors.expos.refresh
-#   enabled: true
+jobs:
+  # Typical jobs (spec section 17). All tasks degrade gracefully when a
+  # source is unavailable - a failed run is RECORDED (job_run), retried, and
+  # never crashes the scheduler. Pause/resume via buyerintel jobs-pause.
+  - id: market_refresh
+    cron: "30 6 * * 1"
+    task: market_refresh
+    enabled: true
+  - id: enrich_queue
+    cron: "0 */6 * * *"
+    task: enrich_queue
+    enabled: true
+  - id: dedupe_sweep
+    cron: "0 5 * * *"
+    task: dedupe_sweep
+    enabled: true
+  - id: score_recompute
+    cron: "0 5 * * *"
+    task: score_recompute
+    enabled: true
+  - id: forecast_refresh
+    cron: "0 7 * * *"
+    task: forecast_refresh
+    enabled: true
+  - id: content_suggestions
+    cron: "0 8 * * 1"
+    task: content_suggestions
+    enabled: true
+  - id: archive_sweep
+    cron: "0 3 * * 3"
+    task: archive_sweep
+    enabled: true
+  - id: expo_refresh
+    cron: "0 4 1 * *"
+    task: expo_refresh
+    enabled: true

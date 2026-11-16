@@ -4,6 +4,7 @@ Commands are small, testable wrappers around library functions.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -445,22 +446,167 @@ def llm_sync_catalog() -> None:
 
 @app.command("jobs")
 def jobs_list() -> None:
-    """List configured scheduler jobs."""
+    """List scheduler jobs with last-run status (config/schedules.yaml + job table)."""
     from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.sched import runner
 
-    jobs = load_settings().schedules.get("jobs", [])
-    if not jobs:
+    s = load_settings()
+    init_db(get_engine(s.db_url))
+    session = get_session(s.db_url)
+    install_audit(type(session))
+    try:
+        runner.seed_jobs(session)
+        session.commit()
+        rows = runner.list_jobs(session)
+    finally:
+        session.close()
+    if not rows:
         typer.echo("No jobs configured (config/schedules.yaml).")
         return
-    for job in jobs:
-        state = "enabled" if job.get("enabled", True) else "disabled"
-        typer.echo(f"{job.get('id')}  {job.get('cron', '')}  [{state}]")
+    for row in rows:
+        state = "enabled" if row["enabled"] else "PAUSED"
+        last = f" last={row['last_run']} ({row['last_status']})" if row["last_run"] else ""
+        typer.echo(f"{row['job_id']}  cron='{row['cron']}' task={row['task']} [{state}]{last}")
+
+
+def _jobs_state(job_id: str, enabled: bool) -> None:
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.sched import runner
+
+    s = load_settings()
+    init_db(get_engine(s.db_url))
+    session = get_session(s.db_url)
+    install_audit(type(session))
+    try:
+        (runner.resume if enabled else runner.pause)(session, job_id)
+        session.commit()
+        typer.echo(f"{job_id}: {'resumed' if enabled else 'paused'}")
+    except LookupError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(1)
+    finally:
+        session.close()
+
+
+@app.command("jobs-pause")
+def jobs_pause(job_id: str = typer.Argument(...)) -> None:
+    """Pause a scheduler job."""
+    _jobs_state(job_id, False)
+
+
+@app.command("jobs-resume")
+def jobs_resume(job_id: str = typer.Argument(...)) -> None:
+    """Resume a paused scheduler job."""
+    _jobs_state(job_id, True)
+
+
+@app.command("jobs-import")
+def jobs_import(
+    file: str = typer.Argument(..., help="CSV of schedules: id,cron,task,enabled,retries"),
+) -> None:
+    """Import schedules from a CSV (optional spec feature)."""
+    import csv
+
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.sched import runner
+
+    with open(file, encoding="utf-8-sig") as fh:
+        rows = list(csv.DictReader(fh))
+    specs = [{"id": r["id"], "cron": r.get("cron"), "task": r.get("task"),
+              "enabled": str(r.get("enabled", "true")).lower() != "false",
+              "retries": int(r.get("retries") or 0)} for r in rows if r.get("id")]
+    s = load_settings()
+    init_db(get_engine(s.db_url))
+    session = get_session(s.db_url)
+    install_audit(type(session))
+    try:
+        result = runner.seed_jobs(session, config={"jobs": specs})
+        session.commit()
+        typer.echo(f"imported={result['total']} new={result['created']}")
+    finally:
+        session.close()
 
 
 @app.command()
 def run(job_id: str = typer.Argument(..., help="Job id from config/schedules.yaml")) -> None:
-    """Run a scheduler job once (stub until the scheduler module lands)."""
-    typer.echo(f"Job '{job_id}' is registered; execution lands with the sched module.")
+    """Run a scheduler job once, right now."""
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.sched import runner
+
+    s = load_settings()
+    init_db(get_engine(s.db_url))
+    session = get_session(s.db_url)
+    install_audit(type(session))
+    try:
+        from sqlalchemy import select as _select
+
+        from buyerintel.db.models import Job
+
+        runner.seed_jobs(session)
+        job = session.scalar(_select(Job).where(Job.job_id == job_id))
+        if job is None:
+            typer.echo(f"job {job_id!r} not found (buyerintel jobs list)")
+            raise typer.Exit(1)
+        job_run = runner.run_job(session, job)
+        session.commit()
+        typer.echo(f"{job_id}: {job_run.status}"
+                   + (f" - {job_run.error}" if job_run.error else ""))
+        if job_run.status == "error":
+            raise typer.Exit(1)
+    finally:
+        session.close()
+
+
+@app.command("catchup")
+def catchup() -> None:
+    """Run missed (coalesced) jobs now - the startup misfire path."""
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.sched import runner
+
+    s = load_settings()
+    init_db(get_engine(s.db_url))
+    session = get_session(s.db_url)
+    install_audit(type(session))
+    try:
+        missed = runner.missed_jobs(session)
+        if not missed:
+            typer.echo("no missed jobs within the grace window")
+            return
+        typer.echo(f"missed: {missed}")
+        for job_id in runner.startup_catchup(session):
+            typer.echo(f"ran {job_id}")
+    finally:
+        session.close()
+
+
+@app.command("scheduler")
+def scheduler() -> None:
+    """Run the built-in APScheduler loop (SQLite job store, catch-up on start)."""
+    from buyerintel.config import load_settings
+    from buyerintel.db.engine import get_engine, get_session, init_db
+    from buyerintel.sched import runner
+
+    s = load_settings()
+    init_db(get_engine(s.db_url))
+    session = get_session(s.db_url)
+    try:
+        caught_up = runner.startup_catchup(session)
+        if caught_up:
+            typer.echo(f"catch-up ran: {caught_up}")
+    finally:
+        session.close()
+    typer.echo("scheduler running (Ctrl+C to stop)")
+    runner.serve_forever(db_url=load_settings().db_url)
 
 
 @app.command()
@@ -755,6 +901,237 @@ def forecast(
     except Exception:
         session.rollback()
         raise
+    finally:
+        session.close()
+
+
+@app.command("outreach-log")
+def outreach_log(
+    company_id: int = typer.Option(..., help="Company id"),
+    channel: str = typer.Option(..., help="email|phone|whatsapp|linkedin|..."),
+    direction: str = typer.Option("out", help="out|in"),
+    outcome: Optional[str] = typer.Option(None, help="sent|opened|replied|bounced|no_reply|..."),
+    subject: Optional[str] = typer.Option(None),
+    notes: Optional[str] = typer.Option(None),
+) -> None:
+    """Log one contact event (the system logs and recommends; it never sends)."""
+    from buyerintel.crm.outreach import log_outreach
+
+    session = _open_session()
+    try:
+        event = log_outreach(session, company_id=company_id, channel=channel,
+                             direction=direction, outcome=outcome,
+                             subject=subject, notes=notes)
+        session.commit()
+        typer.echo(f"logged #{event.id} {direction} {channel} for company {company_id}")
+    finally:
+        session.close()
+
+
+@app.command("outreach-next")
+def outreach_next(
+    tier: Optional[int] = typer.Option(None, help="Only this tier"),
+    limit: Optional[int] = typer.Option(20),
+) -> None:
+    """Next-action engine: one suggested action per company."""
+    from buyerintel.crm.outreach import next_actions
+
+    session = _open_session()
+    try:
+        rows = next_actions(session, tiers=[tier] if tier else None, limit=limit)
+        for row in rows:
+            channel = f" via {row['channel']}" if row.get("channel") else ""
+            typer.echo(f"#{row['company_id']} {row['name']}: "
+                       f"{row['action']}{channel} ({row['reason']})")
+    finally:
+        session.close()
+
+
+@app.command("outreach-list")
+def outreach_list(
+    never_contacted: bool = typer.Option(False, "--never-contacted",
+                                         help="Companies never contacted"),
+    company_id: Optional[int] = typer.Option(None, help="History for one company"),
+) -> None:
+    """Outreach filters: --never-contacted, or one company's history."""
+    from buyerintel.crm.outreach import last_outreach, never_contacted as never
+
+    session = _open_session()
+    try:
+        if never_contacted:
+            companies = never(session)
+            typer.echo(f"never contacted: {len(companies)}")
+            for company in companies:
+                typer.echo(f"  #{company.id} {company.canonical_name}")
+            return
+        if company_id is None:
+            typer.echo("give --never-contacted or --company-id")
+            return
+        event = last_outreach(session, company_id)
+        if event is None:
+            typer.echo(f"#{company_id}: never contacted")
+            return
+        typer.echo(f"#{company_id} last: {event.ts:%Y-%m-%d %H:%M} "
+                   f"{event.direction} {event.channel} ({event.outcome or '?'})")
+    finally:
+        session.close()
+
+
+@app.command("sample-offer")
+def sample_offer(
+    company_id: int = typer.Option(...),
+    status: str = typer.Option("offered", help="offered|shipped|delivered|feedback|closed"),
+    product_ids: str = typer.Option("", help="Comma-separated product ids"),
+) -> None:
+    """Log a sample offer with the FIXED terms text (free sample; buyer pays shipping)."""
+    from buyerintel.crm.samples import SAMPLE_TERMS, offer_sample
+
+    session = _open_session()
+    try:
+        ids = [int(x) for x in product_ids.split(",") if x.strip()]
+        sample = offer_sample(session, company_id=company_id, product_ids=ids, status=status)
+        session.commit()
+        typer.echo(f"sample #{sample.id} {status} for company {company_id}")
+        typer.echo(f"terms: {SAMPLE_TERMS}")
+    finally:
+        session.close()
+
+
+@app.command("sample-status")
+def sample_status(
+    sample_id: int = typer.Argument(...),
+    status: str = typer.Argument(...),
+) -> None:
+    """Update a sample's status."""
+    from buyerintel.crm.samples import set_status
+
+    session = _open_session()
+    try:
+        sample = set_status(session, sample_id, status)
+        session.commit()
+        typer.echo(f"sample #{sample.id}: {sample.status}")
+    except (LookupError, ValueError) as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(1)
+    finally:
+        session.close()
+
+
+@app.command("quote-log")
+def quote_log(
+    company_id: int = typer.Option(...),
+    price: float = typer.Option(..., help="Calendula's own price - user's call"),
+    currency: str = typer.Option("USD"),
+    incoterm: str = typer.Option("FOB"),
+    qty: Optional[float] = typer.Option(None),
+    hs: Optional[str] = typer.Option(None, help="Show the trade-data benchmark for this HS"),
+) -> None:
+    """Record a quote (date, currency, amount, incoterm). No stored price list."""
+    from buyerintel.crm.quotes import benchmark_unit_value, log_quote
+
+    session = _open_session()
+    try:
+        quote = log_quote(session, company_id=company_id, price=price,
+                          currency=currency, incoterm=incoterm, qty=qty)
+        session.commit()
+        typer.echo(f"quote #{quote.id} {price} {currency} {incoterm} for company {company_id}")
+        if hs:
+            bench = benchmark_unit_value(session, hs)
+            if bench:
+                typer.echo(f"benchmark (reference only): {bench}")
+    finally:
+        session.close()
+
+
+@app.command("channel-test")
+def channel_test(
+    company_id: int = typer.Argument(...),
+) -> None:
+    """Channel recommender: ranked channels for one company (re-learned from replies)."""
+    from sqlalchemy import select as _select
+
+    from buyerintel.crm.channels import recommend
+    from buyerintel.db.models import Company
+
+    session = _open_session()
+    try:
+        company = session.scalar(_select(Company).where(Company.id == company_id))
+        if company is None:
+            typer.echo(f"company #{company_id} not found")
+            raise typer.Exit(1)
+        for row in recommend(session, company):
+            observed = f"{row['observed']:.2f}" if row["observed"] is not None else "-"
+            typer.echo(f"{row['channel']}: score={row['score']} "
+                       f"(prior={row['prior']} observed={observed} src={row['source']})")
+    finally:
+        session.close()
+
+
+@app.command("content-draft")
+def content_draft(
+    subject: Optional[str] = typer.Option(None, help="Product to draft for (blank = all trending)"),
+    trend_index: float = typer.Option(80.0),
+) -> None:
+    """Draft B2B content for trending herbs (nothing is posted automatically)."""
+    from buyerintel.crm import content as content_mod
+
+    session = _open_session()
+    try:
+        if subject:
+            item = content_mod.draft_content(session, subject=subject,
+                                             trend_index=trend_index)
+            session.commit()
+            typer.echo(f"draft #{item.id}: {item.title}")
+        else:
+            drafts = content_mod.draft_for_trends(session)
+            session.commit()
+            for item in drafts:
+                typer.echo(f"draft #{item.id}: {item.title}")
+            if not drafts:
+                typer.echo("no trending products above the threshold")
+    finally:
+        session.close()
+
+
+@app.command("content-suggest")
+def content_suggest(
+    content_id: int = typer.Argument(...),
+) -> None:
+    """Suggestion engine: send/skip per company with reasons."""
+    from sqlalchemy import select as _select
+
+    from buyerintel.crm import content as content_mod
+    from buyerintel.db.models import Company, ContentItem
+
+    session = _open_session()
+    try:
+        item = session.get(ContentItem, content_id)
+        if item is None:
+            typer.echo(f"content #{content_id} not found")
+            raise typer.Exit(1)
+        rows = content_mod.suggest_recipients(session, item)
+        session.commit()
+        names = {c.id: c.canonical_name
+                 for c in session.scalars(_select(Company)).all()}
+        for row in rows:
+            typer.echo(f"{row.decision.upper()}: {names.get(row.company_id, row.company_id)} "
+                       f"- {row.reason}")
+    finally:
+        session.close()
+
+
+@app.command("export")
+def export(
+    out: Optional[str] = typer.Option(None, help="Output .xlsx path (default data/)"),
+) -> None:
+    """Generate the multi-sheet Excel workbook (summary, tiers, personas, contacts...)."""
+    from buyerintel.export.workbook import export_workbook
+
+    session = _open_session()
+    try:
+        path = out or str(Path("data") / f"buyerintel_{datetime.now():%Y%m%d_%H%M}.xlsx")
+        written = export_workbook(session, path)
+        typer.echo(f"workbook written: {written}")
     finally:
         session.close()
 

@@ -61,7 +61,29 @@ uv run buyerintel paid-gate-status                   # S7 Apollo/Hunter gate: bu
 uv run buyerintel shipments-import path\to\bol.csv   # generic shipments CSV import (column-mapping yaml)
 uv run buyerintel shipments-fetch                    # fetch shipments via the US BOL source (Tier 1)
 uv run buyerintel forecast                           # per company x product order forecast (window, qty, value, confidence)
-uv run buyerintel serve                # local Streamlit dashboard (Market Intelligence page)
+uv run buyerintel serve                              # local Streamlit dashboard (all 11 M8 pages)
+
+# Scheduler (M8)
+uv run buyerintel jobs                               # list jobs: cron, task, last run + status
+uv run buyerintel run dedupe_sweep                   # run one job now (records JobRun, retries honored)
+uv run buyerintel jobs-pause enrich_queue            # pause a job (survives re-seed)
+uv run buyerintel jobs-resume enrich_queue           # resume it
+uv run buyerintel jobs-import schedules.csv          # import schedules from CSV (id,cron,task,enabled,retries)
+uv run buyerintel catchup                            # run missed (coalesced) jobs now - the startup misfire path
+uv run buyerintel scheduler                          # run the built-in APScheduler loop (Ctrl+C to stop)
+
+# CRM (M8) - the system logs and recommends, it never sends
+uv run buyerintel outreach-log --company-id 3 --channel email --direction out --outcome sent
+uv run buyerintel outreach-list --never-contacted    # companies with zero outreach events
+uv run buyerintel outreach-list --company-id 3       # last touch for one company
+uv run buyerintel outreach-next                      # next-action engine: one suggested action per company
+uv run buyerintel sample-offer --company-id 3        # log a sample offer with the FIXED terms text
+uv run buyerintel sample-status 1 delivered          # advance a sample's status
+uv run buyerintel quote-log --company-id 3 --price 2.95 --incoterm CIF
+uv run buyerintel channel-test 3                     # channel recommender (country priors + reply rates)
+uv run buyerintel content-draft                      # draft B2B posts for trending herbs (nothing auto-posted)
+uv run buyerintel content-suggest 1                  # send/skip suggestions with reasons
+uv run buyerintel export                             # one-click multi-sheet Excel workbook
 ```
 
 ## Milestones
@@ -76,7 +98,7 @@ uv run buyerintel serve                # local Streamlit dashboard (Market Intel
 | M5 | Personas (15, v2), product matching over the ontology, weighted scoring (weights v2), rule chain (9 rules), tiers, auto-tune (dormant until 200 labelled leads) | done |
 | M6 | People discovery: seniority buckets + decision-makers, CrossLinked-style search enumeration, non-login public LinkedIn scraper (ADD-012), email pattern engine (ADD-004), S7 paid-tool gate (Apollo/Hunter, Tier-1-only, credit budget), stages S5-S7 | done |
 | M7 | Shipment sources (ShipmentSource interface, US public BOL connector, generic CSV importer), per company x product forecasting (window, quantity range, value range, confidence), M5 scoring wire-ins (shipment frequency/volume, import-record recency) | done |
-| M8 | Outreach, scheduler, UI, export | - |
+| M8 | CRM (outreach log + next-action engine, fixed-terms samples, quote tracker, channel recommender, content queue + suggestion engine), built-in APScheduler (SQLite job store, restart-surviving jobs, misfire catch-up), full 11-page UI, one-click multi-sheet Excel export | done |
 
 ## Security rules
 

@@ -19,6 +19,7 @@ dependencies = [
     "ddgs>=9.16.1",
     "scrapling>=0.5.1",
     "dnspython>=2.9.2",
+    "apscheduler>=3.10,<4.0",
 ]
 
 [project.scripts]

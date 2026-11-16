@@ -14,10 +14,13 @@ from buyerintel.db.models import (
     CompanyAlias,
     CompanyPersona,
     ContactPoint,
+    ContentItem,
     ContentSuggestion,
     EnrichCheckpoint,
     ExpoAppearance,
     Forecast,
+    JobRun,
+    MarketSignal,
     OutreachEvent,
     PaidToolCall,
     Person,
@@ -62,6 +65,13 @@ if company_ids:
     # 4. the companies themselves
     for c in companies:
         session.delete(c)
+
+    # 5. M8 smoke residue (scheduler config rows in `job` are KEPT - they are
+    #    the seeded schedules the live scheduler keeps using)
+    session.execute(delete(ContentSuggestion))
+    session.execute(delete(ContentItem))
+    session.execute(delete(JobRun))
+    session.execute(delete(MarketSignal).where(MarketSignal.source == "trends"))
     session.commit()
 
 print("companies left:", len(session.scalars(select(Company)).all()))
