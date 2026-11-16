@@ -148,6 +148,18 @@ elif PAGE == "Discovery and Pipeline":
                "records), then run the pipeline on what you found. The system "
                "only LISTENS on public pages - it never contacts anyone.")
 
+    # ------------------------------------------------------------ pipeline overview
+    from buyerintel.discover import pipeline_counts, pipeline_next_step
+
+    counts = pipeline_counts(session)
+    st.subheader("Pipeline right now")
+    stage_cols = st.columns(len(counts))
+    for col, row in zip(stage_cols, counts):
+        col.metric(row["stage"], row["count"])
+        col.caption(row["detail"])
+    st.info(f"**Next step:** {pipeline_next_step(counts)}")
+    st.divider()
+
     # ------------------------------------------------------------ import
     st.subheader("1. Import files")
     with st.expander("Lead workbook (CSV / Excel) + column mapping"):
@@ -288,7 +300,8 @@ elif PAGE == "Discovery and Pipeline":
         if c_expo.button("Find the country's expos (leads)"):
             from buyerintel.discover import expo_leads, expo_queries
 
-            with st.spinner("searching expos..."):
+            with st.spinner("searching expos (site-restricted against expo "
+                            "directories: 10times, tradefairdates, ...)"):
                 try:
                     leads = expo_leads(
                         session, expo_queries(country_name, product=product))
@@ -297,10 +310,74 @@ elif PAGE == "Discovery and Pipeline":
                     session.rollback()
                     st.error(f"expo search failed: {exc}")
                     st.stop()
+            kept = [l for l in leads if "stored" in l]
+            st.metric("Actual expo events found", len(kept),
+                      help="Non-event pages (articles, reports) are dropped "
+                           "automatically.")
             st.dataframe(_df(leads), width="stretch", hide_index=True)
-            st.caption("Expos are stored as LEADS (links), not companies. To "
-                       "ingest an actual exhibitor list, download its CSV and "
-                       "use the ingest box above with the matching expo map.")
+            st.caption("Expos are stored as LEADS (links), not companies. "
+                       "Use AUTO-MINE below to pull the exhibitor list from "
+                       "an expo page - or download its CSV and use the "
+                       "ingest box above with the matching expo map.")
+
+    with st.expander("Auto-mine an exhibitor list (detection is automatic)"):
+        st.caption("Give it an expo page (e.g. a result from above). The "
+                   "miner detects BY ITSELF: the right exhibitor-list page, "
+                   "whether the list is an embedded component or the "
+                   "original page, and how to extract it - static HTML, "
+                   "embedded JSON payloads, URL parameters (?page=2, "
+                   "?exhibitors=1), or a headless Chromium scenario "
+                   "(Selenium, Chrome/Edge) when nothing renders over HTTP. "
+                   "Extracted rows go through the normal importer "
+                   "(idempotent, expo appearances included).")
+        lead_rows = session.scalars(
+            select(m.SourceRecord).where(
+                m.SourceRecord.source == "expo_lead")
+            .order_by(m.SourceRecord.id.desc())).all()
+        lead_options = {"(paste a URL below)": None}
+        for r in lead_rows:
+            data = r.raw_json or {}
+            label = (data.get("title") or data.get("url") or "")[:70]
+            lead_options[label or f"lead #{r.id}"] = data.get("url")
+        mine_pick = st.selectbox("From a stored expo lead", list(lead_options),
+                                 key="mine_pick")
+        mine_url = st.text_input("...or expo page URL",
+                                 "https://www.biofach.de/en",
+                                 key="mine_url")
+        mine_name = st.text_input("Expo name (blank = auto-detect from page)",
+                                  "", key="mine_name")
+        mine_pages = st.number_input("Max pages to try per parameter pass",
+                                     1, 10, 3, key="mine_pages")
+        if st.button("Auto-mine exhibitor list"):
+            from buyerintel.exhibitors.auto import auto_mine_expo
+
+            url = (lead_options.get(mine_pick) or mine_url or "").strip()
+            if not url:
+                st.error("Pick a stored expo lead or paste a URL first.")
+                st.stop()
+            with st.spinner("detecting list page and extraction strategy..."):
+                try:
+                    report = auto_mine_expo(
+                        session, url,
+                        expo_name=mine_name or None,
+                        max_pages=int(mine_pages))
+                    session.commit()
+                except Exception as exc:  # noqa: BLE001 - shown, not raised
+                    session.rollback()
+                    st.error(f"auto-mine failed: {exc}")
+                    st.stop()
+            if report.get("status") == "ok":
+                st.success(f"mined via **{report.get('strategy')}** strategy: "
+                           f"{report.get('rows_found')} exhibitor row(s), "
+                           f"{report.get('imported', {}).get('companies_created')} "
+                           f"new company/companies")
+            else:
+                st.warning(f"{report.get('status') or 'nothing extracted'} - "
+                           f"strategy tried: {report.get('strategy')}")
+            for col in ("list_page", "list_kind", "pages", "embeds",
+                        "notes", "appearances_created"):
+                if report.get(col) is not None:
+                    st.write(f"**{col}**: {report.get(col)}")
 
     with st.expander("BOL / shipment records - who is already listed"):
         st.caption("Checks each company's PUBLIC bill-of-lading footprint "

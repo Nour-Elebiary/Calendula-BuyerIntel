@@ -26,6 +26,7 @@ from buyerintel.config import load_yaml
 from buyerintel.db.models import Company, CompanyAlias
 from buyerintel.resolve.normalize import normalize_name
 from buyerintel.shipments.base import parse_date, to_float, upsert_shipment
+from buyerintel.textio import read_text_any
 
 DEFAULT_COLUMNS = {
     "company": ["consignee", "consignee name", "company", "buyer", "company name",
@@ -109,7 +110,7 @@ def import_shipments_csv(session: Session, path: str | Path, *,
     cfg = config or load_yaml("shipments.yaml")
     alias_map = build_column_map((cfg.get("csv_import") or {}).get("columns"))
 
-    text = Path(path).read_text(encoding="utf-8-sig", errors="replace")
+    text = read_text_any(Path(path))
     lines = text.splitlines()
     start = skip_preamble(lines)
     reader = csv.DictReader(lines[start:], delimiter=sniff_delimiter(lines[start] if start < len(lines) else ""))

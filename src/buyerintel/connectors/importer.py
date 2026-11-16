@@ -87,15 +87,9 @@ def read_rows(path: Path, sheet: str | None = None) -> list[dict]:
             if any(c is not None and str(c).strip() for c in r)
         ]
     if suffix == ".csv":
-        import csv
+        from buyerintel.textio import read_csv_dicts
 
-        with path.open("r", encoding="utf-8-sig", newline="") as fh:
-            reader = csv.DictReader(fh)
-            return [
-                {k: v for k, v in row.items() if k is not None and str(v or "").strip()}
-                for row in reader
-                if any(str(v or "").strip() for v in row.values())
-            ]
+        return read_csv_dicts(path)
     raise ValueError(f"Unsupported import format: {suffix}")
 
 

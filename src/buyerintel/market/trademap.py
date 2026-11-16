@@ -15,6 +15,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from buyerintel.market.common import upsert_trade_flow
+from buyerintel.textio import read_text_any
 
 COLUMN_ALIASES = {
     "reporter": ["reporter", "reportername", "reporters", "reporter_name"],
@@ -82,7 +83,7 @@ def import_trademap_csv(
     source: str = "trademap",
 ) -> TrademapStats:
     """Import one Trade Map export into trade_flow (idempotent upserts)."""
-    text = Path(path).read_text(encoding="utf-8-sig", errors="replace")
+    text = read_text_any(Path(path))
     lines = text.splitlines()
     start = skip_preamble(lines)
     header = lines[start] if start < len(lines) else ""

@@ -11,8 +11,11 @@ from buyerintel.discover import (
     country_queries,
     domain_of,
     expo_leads,
+    expo_queries,
     find_existing,
     name_from_result,
+    pipeline_counts,
+    pipeline_next_step,
     search_candidates,
 )
 
@@ -215,6 +218,77 @@ def test_expo_leads_stored_idempotent(session):
     assert second[0]["stored"] == "already"
     recs = session.query(SourceRecord).filter_by(source="expo_lead").all()
     assert len(recs) == 1 and recs[0].raw_json["url"] == "https://biofach.example"
+
+
+def test_expo_queries_target_directories():
+    queries = expo_queries("germany", product="herbs")
+    assert any("site:10times.com" in q for q in queries)
+    assert any("site:tradefairdates.com" in q for q in queries)
+    assert any("germany" in q for q in queries)
+
+
+def test_expo_leads_drop_articles_keep_events(session):
+    """Owner 2026-11-16: expo discovery returned ARTICLES; keep only actual
+    events (directory hosts or expo/exhibition/fair titles)."""
+    router = FakeRouter({
+        "site:10times.com germany herbs food trade fair": [
+            FakeResult("Top 10 herbal trends in 2026 - market report",
+                       "https://blog.example/herbs-trends"),
+            FakeResult("BioFach 2026 - World's Leading Trade Fair for Organic Food",
+                       "https://www.10times.com/biofach"),
+            FakeResult("Fi Europe 2026 - food ingredients exhibition",
+                       "https://www.figlobal.com/fieurope"),  # title matches, not a dir
+        ],
+    })
+    out = expo_leads(session,
+                     ["site:10times.com germany herbs food trade fair"],
+                     router=router)
+    dropped = [r for r in out if "dropped" in r]
+    kept = [r for r in out if "stored" in r]
+    assert len(dropped) == 1 and "blog.example" in dropped[0]["url"]
+    assert len(kept) == 2
+    assert session.query(SourceRecord).filter_by(source="expo_lead").count() == 2
+
+
+def test_expo_leads_flag_known_map(session):
+    """BioFach is a configured expo map -> map_available badge + stored flag."""
+    from buyerintel.discover import known_expos
+
+    assert "biofach" in known_expos()      # project config ships 8 maps
+    router = FakeRouter({
+        "q": [FakeResult("BioFach 2026 trade fair",
+                         "https://10times.com/biofach")],
+    })
+    out = expo_leads(session, ["q"], router=router)
+    assert out[0]["stored"] == "yes"
+    assert out[0]["map_available"] == "BIOFACH"
+    assert out[0]["map_available"] == known_expos()["biofach"]
+
+
+# ------------------------------------------------------------------ pipeline
+def test_pipeline_counts_ordered_stages(session):
+    from buyerintel.score import rules as score_rules
+
+    session.add(Company(canonical_name="C1"))
+    session.add(Company(canonical_name="C2"))
+    session.flush()
+    counts = pipeline_counts(session)
+    stages = [c["stage"] for c in counts]
+    assert stages == ["1 sourced", "2 enriched", "3 scored", "4 active",
+                      "5 contacted", "6 forecasted"]
+    assert counts[0]["count"] == 2
+    assert counts[2]["count"] == 0
+
+
+def test_pipeline_next_step_suggests_first_gap(session):
+    session.add(Company(canonical_name="Only sourced"))
+    session.flush()
+    counts = pipeline_counts(session)
+    suggestion = pipeline_next_step(counts)
+    assert "enrichment" in suggestion.lower()
+    # fully caught-up (or empty) -> keep sourcing
+    assert pipeline_next_step([{k: 0 if k == "count" else v for k, v in row.items()}
+                               for row in counts]).startswith("everything caught up")
 
 
 # ------------------------------------------------------------------ BOL check

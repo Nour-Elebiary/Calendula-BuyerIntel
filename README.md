@@ -100,6 +100,7 @@ uv run buyerintel export                             # one-click multi-sheet Exc
 | M7 | Shipment sources (ShipmentSource interface, US public BOL connector, generic CSV importer), per company x product forecasting (window, quantity range, value range, confidence), M5 scoring wire-ins (shipment frequency/volume, import-record recency) | done |
 | M8 | CRM (outreach log + next-action engine, fixed-terms samples, quote tracker, channel recommender, content queue + suggestion engine), built-in APScheduler (SQLite job store, restart-surviving jobs, misfire catch-up), full 11-page UI, one-click multi-sheet Excel export | done |
 | M8+ | Discovery and Pipeline UI page: import (lead workbook + expo lists), search-by-yourself (free keywords, country sweep -> companies AND expo leads, public BOL record check), manual pipeline runner (enrich / score / dedupe / forecast) | done |
+| M8+ | Auto data miner: any-CSV import (encoding/delimiter tolerant), pipeline-overview UI on Discovery, expo discovery against known directories, and autonomous exhibitor mining - detects the real list page (candidate ranking), embedded component vs original page, and picks the extraction strategy itself (static profile links -> card grouping -> strict embedded JSON -> URL-parameter pagination -> headless Chromium render with XHR payload capture, scrapling StealthyFetcher primary + selenium fallback; live-verified on biofach.de: Algolia XHR payload -> dynamic-payload strategy) | done |
 
 ## Security rules
 

@@ -195,6 +195,64 @@ def candidate_from_result(session: Session, result, *, tag: str,
     return company, "new"
 
 
+# ------------------------------------------------------------------ pipeline
+def pipeline_counts(session: Session) -> list[dict]:
+    """The whole system is a pipeline - count each stage (owner 2026-11-16).
+
+    Returns ordered stage rows so the UI can show flow and the gap: sourced ->
+    enriched (people/contacts) -> scored & tiered -> active by state ->
+    contacted -> forecasted.
+    """
+    from buyerintel.db.models import (ContactPoint, Forecast, OutreachEvent,
+                                      Person, ScoreRun, Shipment)
+
+    companies = session.scalars(select(Company)).all()
+    total = len(companies)
+    with_domain = sum(1 for c in companies if c.domain)
+    enriched = sum(1 for c in companies if c.last_enriched)
+    scored_ids = set(session.scalars(select(ScoreRun.company_id).distinct()).all())
+    scored = sum(1 for c in companies if c.id in scored_ids)
+    tiers = {t: sum(1 for c in companies if c.tier == t) for t in (1, 2, 3)}
+    contacted_ids = set(session.scalars(
+        select(OutreachEvent.company_id).distinct()).all())
+    contacted = sum(1 for c in companies if c.id in contacted_ids)
+    forecast_ids = set(session.scalars(select(Forecast.company_id).distinct()).all())
+    forecasted = sum(1 for c in companies if c.id in forecast_ids)
+    states: dict[str, int] = {}
+    for c in companies:
+        states[c.state or "active"] = states.get(c.state or "active", 0) + 1
+    return [
+        {"stage": "1 sourced", "count": total,
+         "detail": f"{with_domain} with a domain"},
+        {"stage": "2 enriched", "count": enriched,
+         "detail": f"{session.query(Person).count()} people, "
+                   f"{session.query(ContactPoint).count()} contacts"},
+        {"stage": "3 scored", "count": scored,
+         "detail": f"tiers 1:{tiers[1]} 2:{tiers[2]} 3:{tiers[3]}"},
+        {"stage": "4 active", "count": states.get("active", 0),
+         "detail": ", ".join(f"{k}: {v}" for k, v in sorted(states.items()))
+                   or "-"},
+        {"stage": "5 contacted", "count": contacted,
+         "detail": f"{session.query(OutreachEvent).count()} outreach events"},
+        {"stage": "6 forecasted", "count": forecasted,
+         "detail": f"{session.query(Shipment).count()} shipment rows"},
+    ]
+
+
+def pipeline_next_step(counts: list[dict]) -> str:
+    """First stage that falls behind the one before it -> its runner."""
+    runners = {"2 enriched": "Run enrichment (S0-S4) on the queue",
+               "3 scored": "Run scoring + tiers (rule chain)",
+               "5 contacted": "Outreach and Quotes page (next actions)",
+               "6 forecasted": "Run forecasts (companies with shipments)"}
+    prev = None
+    for row in counts:
+        if prev is not None and row["count"] < prev["count"] and row["stage"] in runners:
+            return runners[row["stage"]]
+        prev = row
+    return "everything caught up - keep sourcing (search by yourself)"
+
+
 # ------------------------------------------------------------------ keyword
 def search_candidates(session: Session, queries: list[str], *, country: str | None = None,
                       tag: str = "search", max_results: int = 8,
@@ -258,22 +316,90 @@ def country_queries(country: str, *, product: str | None = None,
     return out
 
 
+# Directory hosts that LIST trade fairs - results here are expos, not
+# articles/companies (owner 2026-11-16: "it should bring actual expos e.g.
+# biofach, FI, etc").
+EXPO_DIRECTORIES = {
+    "10times.com", "tradefairdates.com", "expodatabase.com",
+    "tradeshowgps.com", "eventseye.com", "expomap.com", "messe.de",
+    "messefrankfurt.com", "nurnbergmesse.de", "biofach.de", "anuga.com",
+    "foodex.jp", "worldfoodistanbul.com", "fi-europe.eu", "fi-europe.com",
+    "proamps.com", "supplyside.com", "supplysideshow.com",
+}
+
+# A result title must look like an actual event to be stored as a lead.
+EXPO_TITLE_RE = re.compile(
+    r"\b(?:expo(?:sition)?|exhibition|trade\s+fair|messe|fair\s+\d{4}|"
+    r"show\s+\d{4}|world\s+food|food\s+ingredients)\b", re.I)
+
+
+def known_expos() -> dict[str, str]:
+    """Stem -> expo name for every configured expo map (config/expo_maps).
+
+    The UI shows a "map available" badge for these so the user knows the
+    exhibitor list can be ingested straight away (stem matching: biofach,
+    fi_europe -> "fi europe", ...).
+    """
+    try:
+        import yaml
+
+        from buyerintel.config import CONFIG_DIR
+
+        out: dict[str, str] = {}
+        for map_path in sorted((CONFIG_DIR / "expo_maps").glob("*.yaml")):
+            if map_path.stem.startswith("_"):
+                continue
+            try:
+                mapping = yaml.safe_load(map_path.read_text(encoding="utf-8")) or {}
+            except Exception:  # noqa: BLE001 - a bad map file is not fatal
+                mapping = {}
+            out[map_path.stem.lower()] = (mapping.get("expo") or map_path.stem)
+        return out
+    except Exception:  # noqa: BLE001 - discovery helper only
+        return {}
+
+
+def _recognize_known_expo(title: str, url: str) -> str | None:
+    """Configured expo map whose stem matches the title or host, if any."""
+    from urllib.parse import urlparse
+
+    host = ""
+    try:
+        host = (urlparse(url).hostname or "").lower().removeprefix("www.")
+    except ValueError:
+        pass
+    haystack = f"{(title or '').lower()} {host}"
+    for stem, name in known_expos().items():
+        if stem in haystack or stem.replace("_", " ") in haystack:
+            return name
+    return None
+
+
 def expo_queries(country: str, *, product: str | None = None) -> list[str]:
-    """Find the country's expos as leads."""
+    """Find the country's ACTUAL expos: site-restricted against expo
+    directories first, generic fallback queries after (owner 2026-11-16:
+    plain queries returned articles; directories return real events)."""
     country = (country or "").strip()
     base = (product or "herbs").strip()
-    return [f"{country} {base} trade expo".strip(),
-            f"{country} {base} trade fair".strip(),
-            f"{country} food ingredients exhibition".strip()]
+    topic = f"{base} food".strip() if base and base != "food" else "food"
+    out = [
+        f"site:10times.com {country} {topic} trade fair",
+        f"site:tradefairdates.com {country} {topic} expo",
+        f"site:expodatabase.com {country} {topic} exhibition",
+    ]
+    out += [f"{country} {topic} trade fair {year}".strip()
+            for year in (2026, 2027)]
+    return out
 
 
 def expo_leads(session: Session, queries: list[str], *, max_results: int = 8,
                router=None) -> list[dict]:
     """Expo-discovery results stored as lead records (source=expo_lead).
 
-    Expos are not companies: they are recorded with their URL so the user can
-    decide to ingest a structured exhibitor list through the existing
-    ingest-expo path (config/expo_maps YAML + CSV) later.
+    Filtering keeps ACTUAL events: the result must sit on an expo-directory
+    host OR carry an expo/exhibition/trade-fair title. Recognized configured
+    expos (config/expo_maps) are flagged map_available so the exhibitor list
+    can be ingested through the existing ingest-expo path straight away.
     """
     if router is None:
         from buyerintel.search.router import SearchRouter
@@ -288,19 +414,40 @@ def expo_leads(session: Session, queries: list[str], *, max_results: int = 8,
             continue
         results, _stats = router.search(query, max_results=max_results)
         for result in results:
+            title = result.title or ""
+            host = ""
+            try:
+                from urllib.parse import urlparse
+
+                host = (urlparse(result.url or "").hostname or "").lower()
+                host = host.removeprefix("www.")
+            except ValueError:
+                pass
+            is_expo = (host in EXPO_DIRECTORIES
+                       or EXPO_TITLE_RE.search(title)
+                       or any(word in host for word in
+                              ("tradefair", "messe", "expo", "fair")))
+            if not is_expo:
+                out.append({"title": title, "url": result.url,
+                            "query": query, "dropped": "not an expo page"})
+                continue
             h = hashlib.sha256((result.url or "").strip().lower().encode("utf-8")).hexdigest()
+            map_name = _recognize_known_expo(title, result.url or "")
             if h in known:
-                out.append({"title": result.title, "url": result.url,
-                            "query": query, "stored": "already"})
+                out.append({"title": title, "url": result.url,
+                            "query": query, "stored": "already",
+                            "map_available": map_name})
                 continue
             known.add(h)
             session.add(SourceRecord(
                 source="expo_lead", raw_hash=h,
-                raw_json={"title": result.title, "url": result.url,
+                raw_json={"title": title, "url": result.url,
                           "engine": result.engine, "query": query,
+                          "map_available": map_name,
                           "snippet": (result.snippet or "")[:400]}))
-            out.append({"title": result.title, "url": result.url,
-                        "query": query, "stored": "yes"})
+            out.append({"title": title, "url": result.url,
+                        "query": query, "stored": "yes",
+                        "map_available": map_name})
     session.flush()
     return out
 

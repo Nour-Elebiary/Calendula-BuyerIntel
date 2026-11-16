@@ -126,28 +126,33 @@ def _rung1_direct(url: str, timeout: float) -> str:
 
 
 def _rung2_scrapling_stealth(url: str) -> str:
-    """Scrapling stealth fetcher (residential-style headers/TLS)."""
+    """Scrapling Fetcher (curl_cffi TLS/impersonation, scrapling >= 0.5)."""
     try:
-        from scrapling.fetchers import StealthyFetcher
+        from scrapling.fetchers import Fetcher
     except ImportError as exc:
-        raise BlockedError(2, f"scrapling stealth unavailable: {exc}") from exc
-    page = StealthyFetcher.fetch(url, headless=True, network_idle=True)
+        raise BlockedError(2, f"scrapling fetcher unavailable: {exc}") from exc
+    page = Fetcher.get(url)
     html = page.html_content if hasattr(page, "html_content") else str(page)
-    if looks_blocked(page.status if hasattr(page, "status") else None, html):
-        raise BlockedError(2, "challenge page after stealth fetch")
+    status = page.status if hasattr(page, "status") else None
+    if looks_blocked(status, html):
+        raise BlockedError(2, f"blocked after scrapling fetch (status={status})")
     return html
 
 
 def _rung3_scrapling_dynamic(url: str) -> str:
-    """Scrapling dynamic fetcher (bundled Playwright, real browser)."""
+    """Scrapling StealthyFetcher (Playwright Chromium, scrapling >= 0.5);
+    handles JS-rendered pages that plain HTTP cannot see."""
     try:
-        from scrapling.fetchers import DynamicFetcher
+        from scrapling.fetchers import StealthyFetcher
     except ImportError as exc:
-        raise BlockedError(3, f"scrapling dynamic unavailable: {exc}") from exc
-    page = DynamicFetcher.fetch(url, headless=True)
+        raise BlockedError(3, f"scrapling stealth unavailable: {exc}") from exc
+    try:
+        page = StealthyFetcher.fetch(url, headless=True, network_idle=True)
+    except Exception as exc:  # noqa: BLE001 - browser failure = blocked
+        raise BlockedError(3, f"scrapling stealth failed: {exc}") from exc
     html = page.html_content if hasattr(page, "html_content") else str(page)
-    if looks_blocked(None, html):
-        raise BlockedError(3, "challenge page after dynamic fetch")
+    if looks_blocked(page.status if hasattr(page, "status") else None, html):
+        raise BlockedError(3, "challenge page after stealth fetch")
     return html
 
 
