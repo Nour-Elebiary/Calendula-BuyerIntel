@@ -99,6 +99,7 @@ uv run buyerintel export                             # one-click multi-sheet Exc
 | M6 | People discovery: seniority buckets + decision-makers, CrossLinked-style search enumeration, non-login public LinkedIn scraper (ADD-012), email pattern engine (ADD-004), S7 paid-tool gate (Apollo/Hunter, Tier-1-only, credit budget), stages S5-S7 | done |
 | M7 | Shipment sources (ShipmentSource interface, US public BOL connector, generic CSV importer), per company x product forecasting (window, quantity range, value range, confidence), M5 scoring wire-ins (shipment frequency/volume, import-record recency) | done |
 | M8 | CRM (outreach log + next-action engine, fixed-terms samples, quote tracker, channel recommender, content queue + suggestion engine), built-in APScheduler (SQLite job store, restart-surviving jobs, misfire catch-up), full 11-page UI, one-click multi-sheet Excel export | done |
+| M8+ | Discovery and Pipeline UI page: import (lead workbook + expo lists), search-by-yourself (free keywords, country sweep -> companies AND expo leads, public BOL record check), manual pipeline runner (enrich / score / dedupe / forecast) | done |
 
 ## Security rules
 

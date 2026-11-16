@@ -27,9 +27,9 @@ st.set_page_config(page_title="Calendula BuyerIntel", page_icon="\U0001f33c", la
 
 PAGE = st.sidebar.radio(
     "Page",
-    ["Dashboard", "Companies", "Company detail", "People", "Market Intelligence",
-     "Shipments and Forecast", "Outreach and Quotes", "Content Queue",
-     "Jobs and Scheduler", "Settings", "Exports"],
+    ["Dashboard", "Discovery and Pipeline", "Companies", "Company detail", "People",
+     "Market Intelligence", "Shipments and Forecast", "Outreach and Quotes",
+     "Content Queue", "Jobs and Scheduler", "Settings", "Exports"],
     label_visibility="collapsed",
 )
 st.sidebar.caption("Calendula BuyerIntel - logs and recommends, never sends.")
@@ -140,6 +140,254 @@ if PAGE == "Dashboard":
           "companies": sum(1 for p in personas.values() if p == pid)}
          for pid in sorted(persona_names)]),
         width="stretch", hide_index=True)
+
+elif PAGE == "Discovery and Pipeline":
+    st.title("Discovery and Pipeline")
+    st.caption("Every pipeline step, drivable from here: import files, search "
+               "for companies yourself (keywords, countries -> expos, BOL "
+               "records), then run the pipeline on what you found. The system "
+               "only LISTENS on public pages - it never contacts anyone.")
+
+    # ------------------------------------------------------------ import
+    st.subheader("1. Import files")
+    with st.expander("Lead workbook (CSV / Excel) + column mapping"):
+        from buyerintel.connectors.importer import import_workbook
+        from buyerintel.config import CONFIG_DIR
+
+        lead_file = st.file_uploader(
+            "Lead workbook", type=["csv", "xlsx", "xls"], key="lead_file")
+        maps = sorted(p.name for p in (CONFIG_DIR / "expo_maps").glob("*.yaml"))
+        mapping_pick = st.selectbox("Column mapping", maps or ["(none)"],
+                                    help="A mapping YAML defines the source name "
+                                         "and column aliases (config/expo_maps/).")
+        mapping_file = st.file_uploader(
+            "...or upload your own mapping YAML", type=["yaml", "yml"],
+            key="mapping_file")
+        expo_name = st.text_input("Register as expo (optional)", "")
+        expo_year = st.number_input("Expo year (0 = none)", 0, 2100, 0)
+        if st.button("Import lead workbook") and lead_file is not None:
+            import tempfile
+            from pathlib import Path as _P
+
+            try:
+                tmp = _P(tempfile.gettempdir()) / lead_file.name
+                tmp.write_bytes(lead_file.getvalue())
+                if mapping_file is not None:
+                    mtmp = _P(tempfile.gettempdir()) / mapping_file.name
+                    mtmp.write_bytes(mapping_file.getvalue())
+                    mapping_path: str | _P = str(mtmp)
+                elif mapping_pick != "(none)":
+                    mapping_path = str(CONFIG_DIR / "expo_maps" / mapping_pick)
+                else:
+                    st.error("Pick or upload a column mapping first.")
+                    st.stop()
+                stats = import_workbook(
+                    session, tmp, mapping_path,
+                    expo_name=expo_name or None,
+                    expo_year=int(expo_year) or None)
+                session.commit()
+                st.success(f"imported: {getattr(stats, '__dict__', stats)}")
+            except Exception as exc:  # noqa: BLE001 - shown, not raised
+                session.rollback()
+                st.error(f"import failed: {exc}")
+
+    with st.expander("Expo exhibitor list (CSV + expo map)"):
+        from buyerintel.connectors.expos import ingest_expo
+
+        expo_file = st.file_uploader(
+            "Exhibitor list CSV", type=["csv", "xlsx"], key="expo_file")
+        expo_map = st.selectbox("Expo map", [m for m in maps if m != "(none)"],
+                                key="expo_map_pick")
+        if st.button("Ingest expo list") and expo_file is not None and expo_map:
+            import tempfile
+            from pathlib import Path as _P
+
+            try:
+                tmp = _P(tempfile.gettempdir()) / expo_file.name
+                tmp.write_bytes(expo_file.getvalue())
+                out = ingest_expo(session, tmp, str(CONFIG_DIR / "expo_maps" / expo_map))
+                session.commit()
+                st.success(f"ingested: {out}")
+            except Exception as exc:  # noqa: BLE001 - shown, not raised
+                session.rollback()
+                st.error(f"ingest failed: {exc}")
+
+    # ------------------------------------------------------------ search yourself
+    st.subheader("2. Search by yourself")
+    with st.expander("Free keywords (e.g. 'herbs importer germany')"):
+        kw = st.text_area("Queries - one per line", "herbs importer germany\n"
+                          "herbs wholesale germany", height=80)
+        from buyerintel.search.querygen import COUNTRY_LANG
+
+        iso_options = ["(none)"] + sorted(COUNTRY_LANG)
+        kw_country = st.selectbox("Country hint (engine choice)", iso_options,
+                                  key="kw_country")
+        if st.button("Run keyword search"):
+            from buyerintel.discover import search_candidates
+
+            queries = [q for q in kw.splitlines() if q.strip()]
+            with st.spinner("searching (cached, rate-limited, fallback engines)..."):
+                try:
+                    out = search_candidates(
+                        session, queries,
+                        country=None if kw_country == "(none)" else kw_country)
+                    session.commit()
+                except Exception as exc:  # noqa: BLE001 - shown, not raised
+                    session.rollback()
+                    st.error(f"search failed: {exc}")
+                    st.stop()
+            st.write(out["stats"])
+            c1, c2, c3 = st.columns(3)
+            c1.metric("New candidates", len(out["created"]))
+            c2.metric("Already known", len(out["existing"]))
+            c3.metric("Skipped (platforms / seen)", out["skipped"])
+            st.dataframe(_df(out["created"]), width="stretch", hide_index=True)
+            with st.expander("Known companies matched"):
+                st.dataframe(_df(out["existing"]), width="stretch", hide_index=True)
+            st.caption("Re-running the same search adds nothing (one provenance "
+                       "row per URL). New candidates land un-tiered - run the "
+                       "scoring step below to place them.")
+
+    with st.expander("Country sweep - its companies AND expos"):
+        country_name = st.text_input("Country (as you'd write it in a query)",
+                                     "germany", key="cs_country")
+        product_rows = session.scalars(
+            select(m.Product).order_by(m.Product.name)).all()
+        product = st.selectbox("Product focus", ["herbs"]
+                               + [p.name for p in product_rows], key="cs_product")
+        show_preview = st.button("Preview queries")
+        if show_preview:
+            from buyerintel.discover import country_queries, expo_queries
+            from buyerintel.search.querygen import product_terms
+
+            terms = [t for t, _lang in product_terms(session, product)]
+            st.code("\n".join(country_queries(country_name, product=product,
+                                              product_terms=terms)[:12])
+                    + "\n... (+ expo queries)\n"
+                    + "\n".join(expo_queries(country_name, product=product)))
+            st.caption("Role words x product terms x ontology languages.")
+        c_run, c_expo = st.columns(2)
+        if c_run.button("Run country company sweep"):
+            from buyerintel.discover import country_queries, search_candidates
+            from buyerintel.search.querygen import product_terms
+
+            terms = [t for t, _lang in product_terms(session, product)]
+            queries = country_queries(country_name, product=product,
+                                      product_terms=terms)
+            with st.spinner("sweeping..."):
+                try:
+                    out = search_candidates(session, queries, tag="search")
+                    session.commit()
+                except Exception as exc:  # noqa: BLE001 - shown, not raised
+                    session.rollback()
+                    st.error(f"sweep failed: {exc}")
+                    st.stop()
+            st.write(out["stats"])
+            st.metric("New candidates", len(out["created"]))
+            st.dataframe(_df(out["created"]), width="stretch", hide_index=True)
+        if c_expo.button("Find the country's expos (leads)"):
+            from buyerintel.discover import expo_leads, expo_queries
+
+            with st.spinner("searching expos..."):
+                try:
+                    leads = expo_leads(
+                        session, expo_queries(country_name, product=product))
+                    session.commit()
+                except Exception as exc:  # noqa: BLE001 - shown, not raised
+                    session.rollback()
+                    st.error(f"expo search failed: {exc}")
+                    st.stop()
+            st.dataframe(_df(leads), width="stretch", hide_index=True)
+            st.caption("Expos are stored as LEADS (links), not companies. To "
+                       "ingest an actual exhibitor list, download its CSV and "
+                       "use the ingest box above with the matching expo map.")
+
+    with st.expander("BOL / shipment records - who is already listed"):
+        st.caption("Checks each company's PUBLIC bill-of-lading footprint "
+                   "(ImportYeti public pages, no account; ~3 s per company). "
+                   "Companies with records are tagged bol_present and their "
+                   "shipment rows are stored (used later by forecasting).")
+        bol_tier = st.selectbox("Tier scope", [1, 2, 3, "all tiers"], key="bol_tier")
+        bol_limit = st.number_input("Max companies this run", 1, 200, 20)
+        if st.button("Check BOL records"):
+            from buyerintel.discover import run_bol_queue
+
+            with st.spinner("checking public BOL pages (paced)..."):
+                try:
+                    rows = run_bol_queue(
+                        session, tier=None if bol_tier == "all tiers" else bol_tier,
+                        limit=int(bol_limit))
+                    session.commit()
+                except Exception as exc:  # noqa: BLE001 - shown, not raised
+                    session.rollback()
+                    st.error(f"BOL check failed: {exc}")
+                    st.stop()
+            st.dataframe(_df(rows), width="stretch", hide_index=True)
+            hits = sum(1 for r in rows if r["rows"])
+            st.metric("Companies with BOL records", hits)
+
+    # ------------------------------------------------------------ pipeline
+    st.subheader("3. Run the pipeline on what you found")
+    pc1, pc2 = st.columns(2)
+    enrich_limit = pc1.number_input("Enrich: max companies", 1, 500, 25)
+    if pc1.button("Run enrichment (S0-S4) on the queue"):
+        from buyerintel.enrich.engine import EnrichEngine
+        from buyerintel.llm.router import LLMRouter
+        from buyerintel.search.router import SearchRouter
+
+        with st.spinner("enriching (resumable)..."):
+            try:
+                engine = EnrichEngine(session, llm=LLMRouter(session),
+                                      search=SearchRouter(session))
+                stats = engine.run(limit=int(enrich_limit))
+                session.commit()
+                st.write(stats.summary())
+            except Exception as exc:  # noqa: BLE001 - shown, not raised
+                session.rollback()
+                st.error(f"enrichment failed: {exc}")
+    if pc2.button("Run scoring + tiers (rule chain)"):
+        from buyerintel.llm.router import LLMRouter
+        from buyerintel.score import rules as score_rules
+
+        with st.spinner("scoring..."):
+            try:
+                ctx = score_rules.load_context(llm=LLMRouter(session))
+                scored = 0
+                for company in score_rules.pending_companies(session, limit=None):
+                    score_rules.run_rule_chain(session, company, ctx)
+                    scored += 1
+                session.commit()
+                st.success(f"scored {scored} companies")
+            except Exception as exc:  # noqa: BLE001 - shown, not raised
+                session.rollback()
+                st.error(f"scoring failed: {exc}")
+    pc3, pc4 = st.columns(2)
+    if pc3.button("Run dedupe sweep"):
+        from buyerintel.resolve.dedupe import sweep
+
+        with st.spinner("sweeping duplicates..."):
+            try:
+                out = sweep(session)
+                session.commit()
+                st.success(f"dedupe: {out}")
+            except Exception as exc:  # noqa: BLE001 - shown, not raised
+                session.rollback()
+                st.error(f"dedupe failed: {exc}")
+    if pc4.button("Run forecasts (companies with shipments)"):
+        from buyerintel.forecast import forecast_all
+
+        with st.spinner("forecasting..."):
+            try:
+                rows = forecast_all(session)
+                session.commit()
+                st.success(f"{len(rows)} forecast row(s) refreshed"
+                           if rows else
+                           "no forecasts yet (needs >= 2 dated shipments per company)")
+            except Exception as exc:  # noqa: BLE001 - shown, not raised
+                session.rollback()
+                st.error(f"forecast failed: {exc}")
+    st.caption("Everything above also runs automatically through the scheduler "
+               "(Jobs and Scheduler page) - these buttons are the manual path.")
 
 elif PAGE == "Companies":
     st.title("Companies")
