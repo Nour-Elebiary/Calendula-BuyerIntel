@@ -17,6 +17,7 @@ it never moves the score (docs/02 section 2).
 """
 from __future__ import annotations
 
+import statistics
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -101,28 +102,57 @@ def component_persona_product(session: Session, company: Company, max_points: fl
 
 def component_scale_frequency(session: Session, company: Company, persona: dict,
                               max_points: float) -> tuple[float, dict]:
-    """0-25: order-size intent + size band + expo presence.
+    """0-25: order-size intent + size band + expo presence + shipment frequency.
 
-    Repeat-order frequency arrives with shipments (M7); the expo and size
-    proxies carry the component until then (logged in DECISIONS.md).
+    M7 wire-in (logged in DECISIONS.md): repeat-order frequency and volume
+    from the shipment table join the proxies. Sub-caps: order_size 8,
+    size_band 4, expo 5, shipments 8 (frequency 0-5 + volume-vs-MOQ 0-3).
     """
     d = persona.get("_definition") or {}
     order_kg = float(d.get("typical_order_kg") or 0)
-    size_points = 10.0 if order_kg >= 1000 else (6.0 if order_kg >= 500 else 3.0) if order_kg else 0.0
+    size_points = 8.0 if order_kg >= 1000 else (5.0 if order_kg >= 500 else 2.0) if order_kg else 0.0
 
     band = (company.size_band or "").lower()
-    band_points = {"large": 5.0, "medium": 3.0, "small": 1.0}.get(band, 0.0)
+    band_points = {"large": 4.0, "medium": 2.5, "small": 1.0}.get(band, 0.0)
 
     appearances = session.scalars(
         select(ExpoAppearance).where(ExpoAppearance.company_id == company.id)
     ).all()
     editions = len({a.edition_id for a in appearances})
-    expo_points = _cap(2.0 * len(appearances) + (4.0 if editions > 1 else 0.0), 10.0)
-    return _cap(size_points + band_points + expo_points, max_points), {
+    expo_points = _cap(1.5 * len(appearances) + (2.0 if editions > 1 else 0.0), 5.0)
+
+    from buyerintel.db.models import Shipment
+
+    shipments = session.scalars(
+        select(Shipment).where(Shipment.company_id == company.id)
+    ).all()
+    n = len(shipments)
+    freq_points = 0.0
+    if n == 1:
+        freq_points = 2.0
+    elif 2 <= n <= 3:
+        freq_points = 4.0
+    elif n >= 4:
+        freq_points = 5.0
+    # shipment volume against the persona's typical order (MOQ proxy)
+    quantities = [s.qty for s in shipments if s.qty]
+    volume_points = 0.0
+    if quantities and order_kg:
+        median_qty = statistics.median(quantities)
+        volume_points = 3.0 if median_qty >= order_kg else \
+            (2.0 if median_qty >= order_kg / 2 else 1.0)
+    elif quantities:
+        volume_points = 1.0  # some real volume, no persona MOQ to compare
+    shipment_points = _cap(freq_points + volume_points, 8.0)
+
+    return _cap(size_points + band_points + expo_points + shipment_points, max_points), {
         "persona_typical_order_kg": order_kg, "order_size_points": size_points,
         "size_band": company.size_band, "size_band_points": band_points,
         "expo_appearances": len(appearances), "distinct_editions": editions,
         "expo_points": expo_points,
+        "shipments": n, "shipment_freq_points": freq_points,
+        "median_shipment_qty": statistics.median(quantities) if quantities else None,
+        "shipment_volume_points": volume_points, "shipment_points": shipment_points,
     }
 
 
@@ -167,9 +197,11 @@ def component_reachability(session: Session, company: Company, max_points: float
 
 
 def component_timing(session: Session, company: Company, max_points: float) -> tuple[float, dict]:
-    """0-10: recent expo edition 4, recent site activity (archive) 3, multi-edition recency 3.
+    """0-10: recent expo edition 3, recent site activity (archive) 2,
+    multi-edition recency 2, import-record recency 3 (M7 wire-in).
 
-    Import-record recency joins in M7 with the shipment sources.
+    Latest shipment within `scoring.shipment_recency_days` (default 180)
+    scores 3; within double that, 2.
     """
     now = datetime.now(timezone.utc)
     editions = session.execute(
@@ -177,20 +209,42 @@ def component_timing(session: Session, company: Company, max_points: float) -> t
         .where(ExpoAppearance.company_id == company.id)
     ).scalars().all()
     recent_expo = [y for y in editions if y and (now.year - y) <= 2]
-    expo_points = 4.0 if recent_expo else 0.0
+    expo_points = 3.0 if recent_expo else 0.0
 
-    from buyerintel.db.models import ArchiveSnapshot
+    from buyerintel.db.models import ArchiveSnapshot, Shipment
 
     snapshots = session.scalars(
         select(ArchiveSnapshot.timestamp).where(ArchiveSnapshot.url.like(f"%{company.domain or '@none@'}%"))
     ).all()
-    recent_archive = any(ts and (now - ts).days <= 730 for ts in snapshots)
-    archive_points = 3.0 if recent_archive else 0.0
-    multi_points = 3.0 if len(set(recent_expo)) > 1 else 0.0
-    return _cap(expo_points + archive_points + multi_points, max_points), {
+    def _aware(ts: datetime) -> datetime:
+        # SQLite returns naive datetimes; normalize for the subtraction
+        return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+
+    recent_archive = any(ts and (now - _aware(ts)).days <= 730 for ts in snapshots)
+    archive_points = 2.0 if recent_archive else 0.0
+    multi_points = 2.0 if len(set(recent_expo)) > 1 else 0.0
+
+    recency_days = float((load_yaml("shipments.yaml").get("scoring") or {})
+                         .get("shipment_recency_days", 180))
+    latest = session.scalar(
+        select(Shipment.date).where(Shipment.company_id == company.id,
+                                    Shipment.date.is_not(None))
+        .order_by(Shipment.date.desc()).limit(1)
+    )
+    shipment_points = 0.0
+    shipment_recency = None
+    if latest is not None:
+        shipment_recency = (now - _aware(latest)).days
+        if shipment_recency <= recency_days:
+            shipment_points = 3.0
+        elif shipment_recency <= recency_days * 2:
+            shipment_points = 2.0
+
+    return _cap(expo_points + archive_points + multi_points + shipment_points, max_points), {
         "recent_expo_years": sorted(set(recent_expo), reverse=True), "expo_points": expo_points,
         "recent_site_activity": recent_archive, "archive_points": archive_points,
         "multi_edition_points": multi_points,
+        "latest_shipment_days_ago": shipment_recency, "shipment_recency_points": shipment_points,
     }
 
 

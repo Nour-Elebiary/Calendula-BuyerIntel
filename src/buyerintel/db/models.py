@@ -433,3 +433,34 @@ class PaidToolCall(Base):
     credits: Mapped[float] = mapped_column(Float, default=0.0)
     outcome: Mapped[str] = mapped_column(String(32))  # ok|no_key|error|skipped_budget
     detail: Mapped[dict | None] = mapped_column(JSON)
+
+
+class Forecast(Base):
+    """Per company x product order forecast (spec section 15, M7).
+
+    Addition to the core table list, logged in docs/DECISIONS.md: the spec
+    requires forecast output (window, quantity range, value range, confidence)
+    but names no table. One row per (company, product_key) where product_key
+    is the HS code or 'all'; recomputes overwrite (unique constraint).
+    """
+
+    __tablename__ = "forecast"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("company.id"), index=True)
+    product_key: Mapped[str] = mapped_column(String(16), index=True)  # hs code or "all"
+    n_shipments: Mapped[int] = mapped_column(Integer, default=0)
+    last_shipment: Mapped[datetime | None] = mapped_column(DateTime)
+    median_interval_days: Mapped[float | None] = mapped_column(Float)
+    window_start: Mapped[datetime | None] = mapped_column(DateTime)
+    window_end: Mapped[datetime | None] = mapped_column(DateTime)
+    qty_min: Mapped[float | None] = mapped_column(Float)
+    qty_max: Mapped[float | None] = mapped_column(Float)
+    unit_value_usd: Mapped[float | None] = mapped_column(Float)
+    uv_source: Mapped[str | None] = mapped_column(String(24))  # shipments|trade_flow|default
+    value_min_usd: Mapped[float | None] = mapped_column(Float)
+    value_max_usd: Mapped[float | None] = mapped_column(Float)
+    seasonality_index: Mapped[float | None] = mapped_column(Float)
+    confidence: Mapped[str] = mapped_column(String(8), default="low")  # low|medium|high
+    detail: Mapped[dict | None] = mapped_column(JSON)
+    computed_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    __table_args__ = (UniqueConstraint("company_id", "product_key"),)

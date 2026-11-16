@@ -17,6 +17,7 @@ from buyerintel.db.models import (
     ContentSuggestion,
     EnrichCheckpoint,
     ExpoAppearance,
+    Forecast,
     OutreachEvent,
     PaidToolCall,
     Person,
@@ -50,7 +51,8 @@ if company_ids:
     #    not company-keyed, so it is not here)
     for table in (ScoreRun, ProductMatch, CompanyPersona, CompanyAlias,
                   ExpoAppearance, EnrichCheckpoint, Shipment, SourceRecord,
-                  OutreachEvent, Quote, Sample, ContentSuggestion, PaidToolCall):
+                  OutreachEvent, Quote, Sample, ContentSuggestion, PaidToolCall,
+                  Forecast):
         session.execute(delete(table).where(table.company_id.in_(company_ids)))
 
     # 3. company-owned contact points

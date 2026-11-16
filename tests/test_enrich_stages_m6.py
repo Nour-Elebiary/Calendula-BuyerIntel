@@ -6,6 +6,8 @@ the M4 era becomes pending again and runs through to s7.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from buyerintel.db.models import Company, EnrichCheckpoint
@@ -39,12 +41,32 @@ def test_s5_gated_by_tier(session):
     assert engine._stage_s5(t2)["deep"] is True
 
 
-def test_s6_placeholder(session):
-    company = Company(canonical_name="Tier One Co", tier=1)
-    session.add(company)
+def test_s6_tier_gating_and_shipment_fetch(session, monkeypatch):
+    """M7: S6 runs the shipment fetch for Tier 1 only; others skip."""
+    from buyerintel.shipments import us_bol as us_bol_mod
+
+    t1 = Company(canonical_name="Tier One Co", tier=1)
+    t2 = Company(canonical_name="Tier Two Co", tier=2)
+    unscored = Company(canonical_name="No Tier Co")
+    session.add_all([t1, t2, unscored])
     session.commit()
-    detail = EnrichEngine(session, config={})._stage_s6(company)
-    assert "M7" in detail["deferred"]
+    engine = EnrichEngine(session, config={})
+
+    assert engine._stage_s6(unscored)["skipped"] == "awaiting tier (score-run first)"
+    assert engine._stage_s6(t2)["skipped"] == "S6 applies to Tier 1"
+
+    # tier 1 fetches through the enabled US BOL source (mocked HTTP)
+    html = Path(__file__).parent / "fixtures" / "importyeti_company.html"
+
+    class _Resp:
+        status_code = 200
+        text = html.read_text(encoding="utf-8")
+
+    monkeypatch.setattr(us_bol_mod.httpx, "get", lambda url, **k: _Resp())
+    monkeypatch.setattr(us_bol_mod.time, "sleep", lambda s: None)
+    detail = engine._stage_s6(t1)
+    assert detail["shipments"]["us_bol"]["created"] == 3
+
 
 
 def test_s7_uses_the_paid_gate(session):

@@ -663,5 +663,101 @@ def paid_gate_status() -> None:
         session.close()
 
 
+def _open_session():
+    from buyerintel.config import load_settings
+    from buyerintel.db.audit import install_audit
+    from buyerintel.db.engine import get_engine, get_session, init_db
+
+    init_db(get_engine(load_settings().db_url))
+    session = get_session(load_settings().db_url)
+    install_audit(type(session))
+    return session
+
+
+@app.command("shipments-import")
+def shipments_import(
+    file: str = typer.Argument(..., help="Path to the bill-of-lading CSV"),
+    source: str = typer.Option("csv", help="Source label stored on the rows"),
+) -> None:
+    """Import a shipments CSV (generic column mapping, config/shipments.yaml)."""
+    from buyerintel.shipments.csv_import import import_shipments_csv
+
+    session = _open_session()
+    try:
+        stats = import_shipments_csv(session, file, source=source)
+        session.commit()
+        typer.echo(stats.summary())
+        for skip in stats.skipped[:10]:
+            typer.echo(f"  skipped: {skip}")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@app.command("shipments-fetch")
+def shipments_fetch(
+    tier: Optional[int] = typer.Option(1, help="Fetch for this tier (S6 is Tier 1)"),
+    limit: Optional[int] = typer.Option(None, help="Max companies this run"),
+) -> None:
+    """Fetch shipments for companies via the enabled ShipmentSources (M7)."""
+    from sqlalchemy import select as _select
+
+    from buyerintel.db.models import Company
+    from buyerintel.shipments.us_bol import ImportYetiPublicSource
+
+    session = _open_session()
+    try:
+        query = _select(Company).where(Company.tier == tier).order_by(Company.id)
+        companies = session.scalars(query).all()
+        if limit is not None:
+            companies = companies[:limit]
+        source = ImportYetiPublicSource(session)
+        if not source.enabled():
+            typer.echo("us_bol source is disabled in config/shipments.yaml")
+            return
+        for company in companies:
+            result = source.run_for_company(company)
+            typer.echo(f"#{company.id} {company.canonical_name}: {result}")
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@app.command("forecast")
+def forecast(
+    company_id: Optional[int] = typer.Option(None, help="Only this company"),
+) -> None:
+    """Compute/refresh order forecasts from shipments; print the windows."""
+    from buyerintel.forecast import forecast_all
+
+    session = _open_session()
+    try:
+        rows = forecast_all(session, company_id=company_id)
+        session.commit()
+        if not rows:
+            typer.echo("no forecasts (needs >= 2 dated shipments per company)")
+            return
+        for f in rows:
+            typer.echo(
+                f"#{f.company_id} {f.product_key} | n={f.n_shipments} "
+                f"conf={f.confidence} | last={f.last_shipment:%Y-%m-%d} "
+                f"median={f.median_interval_days}d | "
+                f"window={f.window_start:%Y-%m-%d}..{f.window_end:%Y-%m-%d} | "
+                f"qty={f.qty_min}-{f.qty_max} | "
+                f"value=${f.value_min_usd}-{f.value_max_usd} "
+                f"(uv={f.unit_value_usd} from {f.uv_source})"
+            )
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
 if __name__ == "__main__":
     app()

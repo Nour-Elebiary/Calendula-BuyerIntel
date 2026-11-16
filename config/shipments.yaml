@@ -1,0 +1,49 @@
+# Shipment sources + forecasting config (spec section 15, M7).
+# All sources are free; the egress policy in network.yaml applies (direct by
+# default, never a Tor exit node). The addendum's Tor-proxied ImportGenius
+# source for non-US data stays an OPEN SLOT until the user supplies a
+# compliant source - it plugs in as another ShipmentSource without redesign.
+
+sources:
+  us_bol:
+    # US public bill-of-lading connector over ImportYeti PUBLIC company
+    # pages: no login, no account, per-domain pacing, degrades to empty on
+    # any failure (the CSV importer is the named fallback).
+    enabled: true
+    base_url: https://www.importyeti.com
+    pacing_s: 3
+    max_companies_per_run: 25
+
+csv_import:
+  # Generic CSV importer (any country's bill-of-lading export). Column
+  # aliases below map the canonical fields; extend them for a new layout
+  # without code changes. Companies are matched-or-created: an unknown
+  # consignee becomes a minimal company (dedupe sweep may merge it later).
+  columns:
+    company: [consignee, consignee name, company, buyer, company name, importer, importer name]
+    date: [date, shipment date, arrival date, bill of lading date, bol date]
+    hs_code: [hs code, hs, hscode, commodity code, tariff code]
+    product_desc: [product description, description, goods, goods description, product, commodity]
+    qty: [quantity, qty, net weight (kg), net weight kg, weight kg, kg]
+    unit: [unit, qty unit, unit of measure, uom]
+    value_usd: [value usd, value (usd), declared value, value, invoice value]
+    origin: [origin, country of origin, shipper country]
+    dest: [dest, destination, destination country, consignee country]
+    shipper: [shipper, supplier, exporter, shipper name]
+
+forecast:
+  # Expected next order window = last shipment + median interval, adjusted
+  # for seasonality (high-demand months pull orders earlier: interval / s),
+  # window = +/- window_factor x adjusted interval.
+  window_factor: 0.25
+  min_interval_days: 15
+  max_interval_days: 365
+  seasonality: true
+  default_unit_value_usd: 2.5   # USD/kg fallback when no shipment/trade-flow value exists
+  confidence:
+    low_below: 3                # fewer shipments -> low confidence (spec: < 3)
+    high_from: 5
+
+scoring:
+  # M7 wire-ins for the M5 components (logged in docs/DECISIONS.md).
+  shipment_recency_days: 180    # latest shipment within this many days = timing points

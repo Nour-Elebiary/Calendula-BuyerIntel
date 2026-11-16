@@ -7,8 +7,8 @@ Every company enters at the cheap stage and goes deeper only if promising:
   S3 multi-engine search passes in local languages (Tier 3 and up)
   S4 social discovery + job-post signals + archive snapshots (Tier 2 and up)
   S5 people and decision-maker discovery (Tier 2 and up; deep for Tier 1)
-  S6 archive history + shipment data + news (archive done in S4; shipments
-     land with M7 - placeholder stage)
+  S6 archive history + shipment data + news (archive done in S4; M7 adds
+     the Tier-1 shipment fetch)
   S7 paid-tool gate, Apollo/Hunter (Tier 1 only, section 12)
 
 The pipeline is a resumable queue: work is checkpointed per company in
@@ -429,10 +429,26 @@ class EnrichEngine:
     def _stage_s6(self, company: Company) -> dict:
         """Archive history + shipment data + news (Tier 1).
 
-        Archive snapshots already run in S4 (M4 decision); shipment data and
-        news land with M7. Placeholder keeps the stage indexing contiguous.
+        Archive snapshots already ran in S4 (M4 decision). M7: shipment data
+        via the enabled ShipmentSources (US BOL connector; the CSV importer
+        stays user-driven). Non-Tier-1 skips - S6 is Tier 1 per section 6.
+        News (GDELT) lands with the market module's schedule, not per company.
         """
-        return {"deferred": "shipment/news sources land with M7; archive ran in S4"}
+        tier = company.tier
+        if tier is None:
+            return {"skipped": "awaiting tier (score-run first)"}
+        if tier != 1:
+            return {"skipped": "S6 applies to Tier 1"}
+        from buyerintel.shipments.base import ShipmentSource
+        from buyerintel.shipments.csv_import import ImportStats  # noqa: F401 (interface parity)
+        from buyerintel.shipments.us_bol import ImportYetiPublicSource
+
+        detail: dict = {"shipments": {}}
+        sources = [ImportYetiPublicSource(self.session, config=self.cfg)]
+        for source in sources:
+            if isinstance(source, ShipmentSource) and source.enabled():
+                detail["shipments"][source.name] = source.run_for_company(company)
+        return detail
 
     def _stage_s7(self, company: Company) -> dict:
         """Paid-tool gate (spec 12.9): Tier 1 only, credit budget enforced."""
